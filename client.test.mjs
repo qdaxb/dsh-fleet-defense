@@ -10,6 +10,14 @@ test("keeps a complete baseline weapon when no AI session is active", () => {
   assert.match(client, /旗舰基础火力在线，可立即单舰出击/);
 });
 
+test("enemy swarms actually close in with visible motion", () => {
+  assert.match(client, /Math\.random\(\) < Math\.min\(0\.62, next\.elapsed \/ 260\)/);
+  assert.match(client, /: 11\.5 \+ next\.elapsed \/ 55/);
+  assert.match(client, /\? 7 \+ next\.elapsed \/ 90/);
+  assert.match(client, /afd-enemy-wrap::before/);
+  assert.match(client, /enemy\.x -= dt \* speed/);
+});
+
 test("makes controls and AI firepower contribution explicit", () => {
   assert.match(client, /点击航道或按 W \/ S 上下移动/);
   assert.match(client, /执行中任务会成为僚机/);
