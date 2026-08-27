@@ -33,6 +33,14 @@ test("always exposes a way back to the Wework workbench", () => {
   assert.match(client, /new PopStateEvent\("popstate"\)/);
 });
 
+test("consumes the ultimate press inside the frame instead of losing it", () => {
+  assert.match(client, /const ultimateRequested = input\.ultimate/);
+  assert.match(client, /input\.ultimate = false/);
+  assert.match(client, /{ \.\.\.input, ultimate: ultimateRequested }/);
+  assert.match(client, /setUltimateDeniedTick/);
+  assert.match(client, /afd-ultimate-denied/);
+});
+
 test("uses the packaged cinematic battlefield asset", () => {
   assert.match(
     client,

@@ -22,9 +22,12 @@ window.__ModuleLoader__.load({
       const [game, setGame] = useState(createGame);
       const [leaderboard, setLeaderboard] = useState([]);
       const [storageError, setStorageError] = useState("");
+      const [ultimateDeniedTick, setUltimateDeniedTick] = useState(0);
       const telemetryRef = useRef(telemetry);
       const inputRef = useRef({ lane: 1, ultimate: false });
       const submittedScoreRef = useRef(null);
+      const gameRef = useRef(game);
+      gameRef.current = game;
       telemetryRef.current = telemetry;
 
       const refreshLeaderboard = useCallback(async () => {
@@ -80,7 +83,11 @@ window.__ModuleLoader__.load({
             inputRef.current.lane = Math.min(2, inputRef.current.lane + 1);
           if (event.key === " ") {
             event.preventDefault();
-            inputRef.current.ultimate = true;
+            const current = gameRef.current;
+            if (current.status === "running" && current.ultimate >= 100)
+              inputRef.current.ultimate = true;
+            else if (current.status === "running")
+              setUltimateDeniedTick((value) => value + 1);
           }
           if (event.key === "Escape") returnToWorkbench();
         };
@@ -94,10 +101,17 @@ window.__ModuleLoader__.load({
         const tick = (now) => {
           const dt = Math.min(0.05, (now - previous) / 1000);
           previous = now;
+          const input = inputRef.current;
+          const ultimateRequested = input.ultimate;
+          input.ultimate = false;
           setGame((current) =>
-            advanceGame(current, inputRef.current, telemetryRef.current, dt),
+            advanceGame(
+              current,
+              { ...input, ultimate: ultimateRequested },
+              telemetryRef.current,
+              dt,
+            ),
           );
-          inputRef.current.ultimate = false;
           frame = requestAnimationFrame(tick);
         };
         frame = requestAnimationFrame(tick);
@@ -402,14 +416,20 @@ window.__ModuleLoader__.load({
                   "button",
                   {
                     type: "button",
-                    className:
-                      game.ultimate >= 100
-                        ? "afd-ultimate afd-ultimate-ready"
-                        : "afd-ultimate",
+                    key: ultimateDeniedTick,
+                    className: [
+                      "afd-ultimate",
+                      game.ultimate >= 100 ? "afd-ultimate-ready" : "",
+                      ultimateDeniedTick ? "afd-ultimate-denied" : "",
+                    ]
+                      .join(" ")
+                      .trim(),
                     disabled: game.ultimate < 100,
                     "data-testid": "ai-fleet-defense-ultimate",
                     onClick: () => {
-                      inputRef.current.ultimate = true;
+                      if (gameRef.current.ultimate >= 100)
+                        inputRef.current.ultimate = true;
+                      else setUltimateDeniedTick((value) => value + 1);
                     },
                   },
                   h("small", null, "SPACE"),
@@ -1142,6 +1162,7 @@ window.__ModuleLoader__.load({
       @keyframes afd-impact{0%{opacity:1;transform:translate(-50%,-50%) scale(.2)}100%{opacity:0;transform:translate(-50%,-50%) scale(2.5)}}
       @keyframes afd-ultimate{0%{opacity:1;transform:translate(-50%,-50%) scale(.2)}100%{opacity:0;transform:translate(-50%,-50%) scale(6)}}
       @keyframes afd-ready{0%,100%{box-shadow:0 0 20px rgba(77,232,255,.25)}50%{box-shadow:0 0 42px rgba(77,232,255,.72)}}
+      @keyframes afd-denied{0%,100%{box-shadow:0 0 0 rgba(255,93,120,0)}20%,60%{box-shadow:0 0 22px rgba(255,93,120,.85);border-color:#ff5d78;color:#ffb3c2}} .afd-ultimate-denied{animation:afd-denied .7s ease-out}
       .afd-exit{background:rgba(79,111,145,.12);border:1px solid rgba(126,178,219,.28);border-radius:9px;color:#9fd6ec;cursor:pointer;font-size:11px;font-weight:700;min-height:34px;padding:0 13px;transition:.2s}.afd-exit:hover{background:rgba(126,218,244,.16);border-color:rgba(126,218,244,.5);color:#e9fbff}.afd-exit-overlay{align-self:center;margin-top:10px}
       .afd-overlay-actions{align-items:center;display:flex;flex-direction:column}
       .afd-page{background:radial-gradient(circle at 42% 0,#101e38 0,#07101f 36%,#030813 76%);box-sizing:border-box;color:#eef8ff;font-family:Inter,"SF Pro Display","PingFang SC","Microsoft YaHei",sans-serif;min-height:100%;padding:22px 24px 32px}
