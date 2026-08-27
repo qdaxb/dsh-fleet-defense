@@ -147,3 +147,8 @@ test("uses the packaged cinematic battlefield asset", () => {
     /\/ai-fleet-defense\/assets\/neural-rift-battlefield\.png/,
   );
 });
+
+test("uses a dedicated shield icon in the route and sidebar", () => {
+  assert.equal((client.match(/icon: "shield"/g) ?? []).length, 2);
+  assert.doesNotMatch(client, /icon: "applications"/);
+});

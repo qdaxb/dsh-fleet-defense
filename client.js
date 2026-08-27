@@ -1670,7 +1670,7 @@ window.__ModuleLoader__.load({
           "wework.route",
           {
             id: "ai-fleet-defense.route",
-            icon: "applications",
+            icon: "shield",
             path: "/ai-fleet-defense",
             restorePolicy: "session",
             title: "AI 舰队 · 零号防线",
@@ -1682,7 +1682,7 @@ window.__ModuleLoader__.load({
         ctx.wework.ui.register(ctx, "wework.sidebar.navigation", {
           id: "ai-fleet-defense.navigation",
           activeItem: "ai-fleet-defense",
-          icon: "applications",
+          icon: "shield",
           label: "AI 舰队防线",
           order: 35,
           path: "/ai-fleet-defense",
