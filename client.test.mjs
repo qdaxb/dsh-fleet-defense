@@ -17,6 +17,14 @@ test("makes controls and AI firepower contribution explicit", () => {
   assert.match(client, /data-testid": "ai-fleet-defense-ultimate"/);
 });
 
+test("always exposes a way back to the Wework workbench", () => {
+  assert.match(client, /data-testid": "ai-fleet-defense-exit"/);
+  assert.match(client, /data-testid": "ai-fleet-defense-exit-after"/);
+  assert.match(client, /event\.key === "Escape"/);
+  assert.match(client, /window\.history\.pushState/);
+  assert.match(client, /new PopStateEvent\("popstate"\)/);
+});
+
 test("uses the packaged cinematic battlefield asset", () => {
   assert.match(
     client,

@@ -82,6 +82,7 @@ window.__ModuleLoader__.load({
             event.preventDefault();
             inputRef.current.ultimate = true;
           }
+          if (event.key === "Escape") returnToWorkbench();
         };
         window.addEventListener("keydown", onKey);
         return () => window.removeEventListener("keydown", onKey);
@@ -172,6 +173,16 @@ window.__ModuleLoader__.load({
               synergyHint(telemetry.activeSessions),
               "#b59cff",
             ),
+          ),
+          h(
+            "button",
+            {
+              type: "button",
+              className: "afd-exit",
+              "data-testid": "ai-fleet-defense-exit",
+              onClick: returnToWorkbench,
+            },
+            "← 返回工作台",
           ),
         ),
         h(
@@ -598,15 +609,29 @@ window.__ModuleLoader__.load({
                 ),
               ),
           h(
-            "button",
-            {
-              type: "button",
-              className: "afd-start",
-              "data-testid": "ai-fleet-defense-start",
-              onClick: onStart,
-            },
-            h("span", null, ended ? "重新部署" : "启动防线"),
-            h("b", null, "→"),
+            "div",
+            { className: "afd-overlay-actions" },
+            h(
+              "button",
+              {
+                type: "button",
+                className: "afd-start",
+                "data-testid": "ai-fleet-defense-start",
+                onClick: onStart,
+              },
+              h("span", null, ended ? "重新部署" : "启动防线"),
+              h("b", null, "→"),
+            ),
+            h(
+              "button",
+              {
+                type: "button",
+                className: "afd-exit afd-exit-overlay",
+                "data-testid": "ai-fleet-defense-exit-after",
+                onClick: returnToWorkbench,
+              },
+              "退出至工作台",
+            ),
           ),
           !ended
             ? h(
@@ -1084,6 +1109,19 @@ window.__ModuleLoader__.load({
       return ["上层轨道", "核心航道", "下层轨道"][lane] ?? "未知航道";
     }
 
+    function workbenchPath() {
+      const appBase = window.__WEWORK_RUNTIME_CONFIG__?.appBasePath
+        ?.replace(/\/+$/, "");
+      return appBase ? `${appBase}/` : "/";
+    }
+
+    function returnToWorkbench() {
+      const target = workbenchPath();
+      if (window.location.pathname === target) return;
+      window.history.pushState({}, "", target);
+      window.dispatchEvent(new PopStateEvent("popstate"));
+    }
+
     function formatNumber(value) {
       return Math.round(Number(value) || 0).toLocaleString();
     }
@@ -1104,6 +1142,8 @@ window.__ModuleLoader__.load({
       @keyframes afd-impact{0%{opacity:1;transform:translate(-50%,-50%) scale(.2)}100%{opacity:0;transform:translate(-50%,-50%) scale(2.5)}}
       @keyframes afd-ultimate{0%{opacity:1;transform:translate(-50%,-50%) scale(.2)}100%{opacity:0;transform:translate(-50%,-50%) scale(6)}}
       @keyframes afd-ready{0%,100%{box-shadow:0 0 20px rgba(77,232,255,.25)}50%{box-shadow:0 0 42px rgba(77,232,255,.72)}}
+      .afd-exit{background:rgba(79,111,145,.12);border:1px solid rgba(126,178,219,.28);border-radius:9px;color:#9fd6ec;cursor:pointer;font-size:11px;font-weight:700;min-height:34px;padding:0 13px;transition:.2s}.afd-exit:hover{background:rgba(126,218,244,.16);border-color:rgba(126,218,244,.5);color:#e9fbff}.afd-exit-overlay{align-self:center;margin-top:10px}
+      .afd-overlay-actions{align-items:center;display:flex;flex-direction:column}
       .afd-page{background:radial-gradient(circle at 42% 0,#101e38 0,#07101f 36%,#030813 76%);box-sizing:border-box;color:#eef8ff;font-family:Inter,"SF Pro Display","PingFang SC","Microsoft YaHei",sans-serif;min-height:100%;padding:22px 24px 32px}
       .afd-header{align-items:center;display:flex;gap:24px;justify-content:space-between;margin:0 auto 18px;max-width:1760px}
       .afd-brand{align-items:center;display:flex;gap:14px}.afd-brand h1{font-size:26px;letter-spacing:-.5px;line-height:1;margin:0}.afd-brand p{color:#7f9ab2;font-size:12px;margin:7px 0 0}
@@ -1125,7 +1165,7 @@ window.__ModuleLoader__.load({
       .afd-session{align-items:center;border-top:1px solid rgba(109,158,195,.11);display:grid;gap:9px;grid-template-columns:32px 1fr auto;min-height:49px}.afd-session>span{align-items:center;background:rgba(77,232,255,.08);border:1px solid rgba(77,232,255,.22);border-radius:6px;color:#65e8fb;display:flex;font-size:9px;font-weight:900;height:26px;justify-content:center;width:26px}.afd-session div{display:grid}.afd-session small{color:#60798f;font-size:8px}.afd-empty-fleet,.afd-empty-rank{align-items:center;color:#7290a8;display:flex;flex-direction:column;padding:18px 8px 10px;text-align:center}.afd-empty-fleet p{font-size:10px;margin:7px 0}.afd-reactor{border:1px solid rgba(77,232,255,.35);border-radius:50%;box-shadow:inset 0 0 18px rgba(77,232,255,.14),0 0 18px rgba(77,232,255,.1);height:48px;margin-bottom:11px;width:48px}.afd-more{color:#607b91;font-size:9px;text-align:center}
       .afd-backend-note{background:rgba(255,209,102,.06);border:1px solid rgba(255,209,102,.17);border-radius:8px;display:grid;gap:5px;padding:12px}.afd-rank{align-items:center;border-top:1px solid rgba(109,158,195,.11);display:grid;gap:7px;grid-template-columns:30px 1fr auto;min-height:40px}.afd-rank-first{background:linear-gradient(90deg,rgba(255,209,102,.07),transparent)}.afd-rank>span{color:#c1d3e1;font-size:11px;overflow:hidden;text-overflow:ellipsis}.afd-rank strong{font-size:12px}.afd-protocol{background:linear-gradient(145deg,rgba(24,26,58,.94),rgba(8,17,34,.94))}.afd-protocol-row{align-items:start;display:grid;gap:9px;grid-template-columns:24px 1fr;margin-top:9px}.afd-protocol-row>span{color:#b9a8ff;font-size:9px;font-weight:900}.afd-protocol-row div{display:grid}.afd-protocol-row small{color:#6d7e96;font-size:9px;margin-top:2px}
       button:focus-visible{outline:2px solid #7cf4ff;outline-offset:2px}
-      @media(max-width:1180px){.afd-layout{grid-template-columns:1fr}.afd-header{align-items:flex-start;flex-direction:column}.afd-battlefield{height:500px}}
+      @media(max-width:1180px){.afd-layout{grid-template-columns:1fr}.afd-header{align-items:flex-start;flex-direction:column}.afd-battlefield{height:500px}.afd-exit{align-self:flex-start}}
     `;
 
     exports.inject = ["slots", "wework"];
