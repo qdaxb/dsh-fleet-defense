@@ -2,7 +2,8 @@
 
 这是一个独立的标准 DSH dual-face 插件：
 
-- Host 半边监听官方 `session/event`，从 `assistant/chunk` 的 `usage` 事件计算每个 Session 的实时 token/s。
+- Host 半边监听官方 `session/event`，通过短时滑动窗口统计模型输出分片，
+  并使用每个 Step 的 `usage` 作为无流式分片时的 token/s 数据。
 - Client 半边通过 `wework.route` 与 `wework.sidebar.navigation` 注册 Wework 游戏页面。
 - 游戏结束后，Client 使用 Wegent 的通用 DSH 插件存储 API 保存共享最佳分数并读取 Backend 范围内排行榜。
 

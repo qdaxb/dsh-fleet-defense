@@ -20,16 +20,19 @@ test("aggregates token speed across active sessions with capped parallel synergy
   assert.ok(snapshot.ultimateChargePerSecond > 4);
 });
 
-test("uses cumulative usage deltas and closes firepower at turn end", () => {
+test("uses step-local usage and closes firepower at turn end", () => {
   let now = 0;
   const telemetry = new FleetTelemetry(() => now);
   const session = { id: "session-1" };
 
   telemetry.handle(session, { type: "turn/start", data: { turn: 1 } });
   now = 1000;
-  telemetry.handle(session, usageEvent(10));
+  telemetry.handle(session, stepStartEvent(1));
+  telemetry.handle(session, usageEvent(10, 1));
   now = 2000;
-  telemetry.handle(session, usageEvent(25));
+  telemetry.handle(session, stepStartEvent(2));
+  now = 3000;
+  telemetry.handle(session, usageEvent(15, 2));
   assert.ok(telemetry.snapshot().tokensPerSecond >= 10);
 
   telemetry.handle(session, {
@@ -63,25 +66,78 @@ test("uses a recent exact usage sample when a runtime has no text deltas", () =>
   const session = { id: "session-1" };
 
   telemetry.handle(session, { type: "turn/start", data: { turn: 1 } });
+  telemetry.handle(session, stepStartEvent(1));
   now = 45000;
-  telemetry.handle(session, usageEvent(450));
+  telemetry.handle(session, usageEvent(450, 1));
   assert.equal(telemetry.snapshot().tokensPerSecond, 10);
 
   now = 51000;
   assert.equal(telemetry.snapshot().tokensPerSecond, 0);
 });
 
-function usageEvent(outputTokens) {
+test("smooths model deltas that arrive in the same event-loop burst", () => {
+  let now = 0;
+  const telemetry = new FleetTelemetry(() => now);
+  const session = { id: "session-1" };
+
+  telemetry.handle(session, { type: "turn/start", data: { turn: 1 } });
+  telemetry.handle(session, stepStartEvent(1));
+  now = 1000;
+  telemetry.handle(session, deltaEvent("reasoning-delta", "中".repeat(100)));
+  telemetry.handle(session, deltaEvent("reasoning-delta", "中".repeat(100)));
+  telemetry.handle(session, deltaEvent("reasoning-delta", "中".repeat(100)));
+
+  assert.equal(telemetry.snapshot().tokensPerSecond, 300);
+});
+
+test("treats usage as step-local instead of cumulative across a turn", () => {
+  let now = 0;
+  const telemetry = new FleetTelemetry(() => now);
+  const session = { id: "session-1" };
+
+  telemetry.handle(session, { type: "turn/start", data: { turn: 1 } });
+  telemetry.handle(session, stepStartEvent(1));
+  now = 10000;
+  telemetry.handle(session, usageEvent(100, 1));
+  assert.equal(telemetry.snapshot().tokensPerSecond, 10);
+
+  telemetry.handle(session, stepStartEvent(2));
+  now = 12000;
+  telemetry.handle(session, usageEvent(20, 2));
+  assert.equal(telemetry.snapshot().tokensPerSecond, 10);
+});
+
+test("counts streamed tool call arguments as model output", () => {
+  let now = 0;
+  const telemetry = new FleetTelemetry(() => now);
+  const session = { id: "session-1" };
+
+  telemetry.handle(session, { type: "turn/start", data: { turn: 1 } });
+  telemetry.handle(session, stepStartEvent(1));
+  now = 1000;
+  telemetry.handle(session, deltaEvent("tool-call-delta", "x".repeat(400)));
+
+  assert.equal(telemetry.snapshot().tokensPerSecond, 100);
+});
+
+function usageEvent(outputTokens, step = 1) {
   return {
     type: "assistant/chunk",
     data: {
       turn: 1,
-      step: 1,
+      step,
       chunk: {
         type: "usage",
         usage: { inputTokens: 10, outputTokens },
       },
     },
+  };
+}
+
+function stepStartEvent(step) {
+  return {
+    type: "step/start",
+    data: { turn: 1, step },
   };
 }
 
@@ -91,7 +147,10 @@ function deltaEvent(type, text) {
     data: {
       turn: 1,
       step: 1,
-      chunk: { type, index: 0, text },
+      chunk:
+        type === "tool-call-delta"
+          ? { type, index: 0, argumentsDelta: text }
+          : { type, index: 0, text },
     },
   };
 }
