@@ -1,9 +1,15 @@
+import { readFileSync } from "node:fs";
+import { fileURLToPath } from "node:url";
 import { FleetTelemetry } from "./telemetry.js";
 
 export const name = "ai-fleet-defense";
 export const inject = ["sessions", "webServer"];
 
 const STATE_PATH = "/ai-fleet-defense/v1/state";
+const BACKGROUND_PATH = "/ai-fleet-defense/assets/neural-rift-battlefield.png";
+const BACKGROUND_FILE = fileURLToPath(
+  new URL("./assets/neural-rift-battlefield.png", import.meta.url),
+);
 
 export function apply(ctx) {
   const telemetry = new FleetTelemetry();
@@ -16,6 +22,15 @@ export function apply(ctx) {
         handler: (req, res) => serveState(req, res, telemetry),
       }),
     `ai-fleet-defense: ${STATE_PATH}`,
+  );
+  ctx.effect(
+    () =>
+      ctx.webServer.register({
+        kind: "exact",
+        path: BACKGROUND_PATH,
+        handler: (req, res) => serveBackground(req, res),
+      }),
+    `ai-fleet-defense: ${BACKGROUND_PATH}`,
   );
 }
 
@@ -30,6 +45,25 @@ function serveState(req, res, telemetry) {
     return;
   }
   sendJson(res, 200, telemetry.snapshot(), req.method === "HEAD");
+}
+
+function serveBackground(req, res) {
+  if (!trustedBrowserRequest(req)) {
+    sendJson(res, 403, { error: "Forbidden" });
+    return;
+  }
+  if (req.method !== "GET" && req.method !== "HEAD") {
+    res.writeHead(405, { allow: "GET, HEAD" });
+    res.end();
+    return;
+  }
+  const body = readFileSync(BACKGROUND_FILE);
+  res.writeHead(200, {
+    "content-type": "image/png",
+    "cache-control": "public, max-age=3600",
+    "content-length": body.byteLength,
+  });
+  res.end(req.method === "HEAD" ? undefined : body);
 }
 
 function trustedBrowserRequest(req) {
