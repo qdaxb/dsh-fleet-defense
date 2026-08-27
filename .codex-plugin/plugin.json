@@ -1,0 +1,17 @@
+{
+  "name": "ai-fleet-defense",
+  "version": "0.1.0",
+  "description": "让并行运行的 AI 任务为舰队防线提供实时火力。",
+  "author": {
+    "name": "Wegent"
+  },
+  "interface": {
+    "displayName": "AI 舰队防线",
+    "shortDescription": "运行更多并行 AI 任务，提升舰队火力与大招充能",
+    "longDescription": "一个基于标准 DSH Session 事件的三航道防守游戏。每个运行中的任务都会成为僚机，实时 token 速度会增强射速并加快大招充能；最佳分数可在当前 Wegent Backend 范围内共享并进入排行榜。",
+    "developerName": "Wegent",
+    "category": "娱乐",
+    "capabilities": ["Read", "Network"],
+    "defaultPrompt": ["打开 AI 舰队防线，并同时启动几个有价值的并行任务。"]
+  }
+}

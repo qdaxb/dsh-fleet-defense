@@ -1,0 +1,6 @@
+- insert:
+    - id: ai-fleet-defense
+      name: "@wegent/ai-fleet-defense"
+      inject:
+        - sessions
+        - webServer
