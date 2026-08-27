@@ -1,6 +1,6 @@
 # AI 舰队防线
 
-这是一个独立的标准 DSH dual-face 插件：
+这是一个独立的标准 DSH dual-face 插件，基于[wework](https://github.com/wecode-ai/Wegent)运行：
 
 - Host 半边监听官方 `session/event`，通过短时滑动窗口统计模型输出分片，
   并使用每个 Step 的 `usage` 作为无流式分片时的 token/s 数据。
