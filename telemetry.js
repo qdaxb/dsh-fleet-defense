@@ -1,6 +1,4 @@
-const LIVE_RATE_WINDOW_MS = 2000;
 const MIN_RATE_WINDOW_MS = 1000;
-const USAGE_RATE_STALE_MS = 5000;
 
 export class FleetTelemetry {
   constructor(clock = () => Date.now()) {
@@ -16,18 +14,20 @@ export class FleetTelemetry {
     if (event.type === "turn/start") {
       state.active = true;
       state.startedAt = now;
-      state.lastUsageAt = now;
-      state.lastDeltaAt = null;
+      state.turnStartedAt = now;
       state.stepKey = null;
       state.stepStartedAt = now;
-      state.tokenSamples = [];
-      state.usageRate = 0;
+      state.stepStartObserved = true;
+      state.observedOutputTokens = 0;
+      state.lastUsageTokens = null;
+      state.lastUsageAt = null;
+      state.currentRate = 0;
       return;
     }
 
     if (event.type === "step/start") {
       state.active = true;
-      startStep(state, event.data, now);
+      startStep(state, event.data, now, true);
       return;
     }
 
@@ -45,9 +45,12 @@ export class FleetTelemetry {
       if (typeof text !== "string" || !text) return;
       state.active = true;
       const estimatedTokens = estimateTokens(text);
-      state.tokenSamples.push({ at: now, tokens: estimatedTokens });
-      pruneSamples(state, now);
-      state.lastDeltaAt = now;
+      state.observedOutputTokens += estimatedTokens;
+      state.currentRate = averageRate(
+        state.observedOutputTokens,
+        state.stepStartedAt,
+        now,
+      );
       return;
     }
 
@@ -59,47 +62,52 @@ export class FleetTelemetry {
       if (outputTokens === null) return;
       startStepIfNeeded(state, event.data, now);
       state.active = true;
-      const elapsedMs = Math.max(
-        MIN_RATE_WINDOW_MS,
-        now - state.stepStartedAt,
-      );
-      state.usageRate = (outputTokens * 1000) / elapsedMs;
+      if (
+        state.lastUsageTokens !== null &&
+        state.lastUsageAt !== null &&
+        outputTokens >= state.lastUsageTokens
+      ) {
+        state.currentRate = averageRate(
+          outputTokens - state.lastUsageTokens,
+          state.lastUsageAt,
+          now,
+        );
+      } else if (state.stepStartObserved) {
+        state.currentRate = averageRate(
+          outputTokens,
+          state.stepStartedAt,
+          now,
+        );
+      }
+      if (state.stepStartObserved) {
+        state.observedOutputTokens = outputTokens;
+      }
+      state.lastUsageTokens = outputTokens;
       state.lastUsageAt = now;
       return;
     }
 
     if (event.type === "turn/end") {
       state.active = false;
-      state.tokenSamples = [];
-      state.usageRate = 0;
+      state.observedOutputTokens = 0;
+      state.currentRate = 0;
     }
   }
 
   snapshot() {
     const now = this.clock();
     const sessions = [...this.sessions.entries()].map(([sessionId, state]) => {
-      pruneSamples(state, now);
-      const liveAge =
-        state.lastDeltaAt === null ? Number.POSITIVE_INFINITY : now - state.lastDeltaAt;
-      const usageAge = now - state.lastUsageAt;
-      const rate =
-        liveAge <= LIVE_RATE_WINDOW_MS
-          ? rollingRate(state, now) *
-            Math.exp(-liveAge / LIVE_RATE_WINDOW_MS)
-          : usageAge <= USAGE_RATE_STALE_MS
-            ? state.usageRate
-            : 0;
       return {
         sessionId,
         active: state.active,
-        tokensPerSecond: state.active ? round(rate) : 0,
+        tokensPerSecond: state.active ? round(state.currentRate) : 0,
         lastEventAt: state.lastEventAt,
       };
     });
     const activeSessions = sessions.filter((session) => session.active);
     const parallelTasks = activeSessions.length;
     const synergy = round(
-      1 + Math.min(4, Math.max(0, parallelTasks - 1)) * 0.12,
+      1 + Math.min(4, Math.max(0, parallelTasks - 1)) * 0.16,
       2,
     );
     const tokensPerSecond = round(
@@ -113,7 +121,11 @@ export class FleetTelemetry {
       activeSessions: parallelTasks,
       tokensPerSecond,
       synergy,
-      ultimateChargePerSecond: round(4 + tokensPerSecond * 0.18 * synergy),
+      ultimateChargePerSecond: round(
+        1.6 +
+          Math.min(5, parallelTasks) * 0.7 +
+          tokensPerSecond * 0.12 * synergy,
+      ),
       sessions,
     };
   }
@@ -124,13 +136,15 @@ export class FleetTelemetry {
     const state = {
       active: false,
       startedAt: now,
+      turnStartedAt: null,
       lastEventAt: now,
-      lastUsageAt: now,
-      lastDeltaAt: null,
       stepKey: null,
       stepStartedAt: now,
-      tokenSamples: [],
-      usageRate: 0,
+      stepStartObserved: false,
+      observedOutputTokens: 0,
+      lastUsageTokens: null,
+      lastUsageAt: null,
+      currentRate: 0,
     };
     this.sessions.set(sessionId, state);
     return state;
@@ -139,32 +153,32 @@ export class FleetTelemetry {
 
 function startStepIfNeeded(state, data, now) {
   const key = stepKey(data);
-  if (state.stepKey !== key) startStep(state, data, now);
+  if (state.stepKey === key) return;
+  const observedStart = state.turnStartedAt !== null;
+  startStep(
+    state,
+    data,
+    observedStart ? state.turnStartedAt : now,
+    observedStart,
+  );
 }
 
-function startStep(state, data, now) {
+function startStep(state, data, now, observed) {
   state.stepKey = stepKey(data);
   state.stepStartedAt = now;
+  state.stepStartObserved = observed;
+  state.observedOutputTokens = 0;
+  state.lastUsageTokens = null;
+  state.lastUsageAt = null;
+  state.currentRate = 0;
 }
 
 function stepKey(data) {
   return `${data?.turn ?? "unknown"}:${data?.step ?? "unknown"}`;
 }
 
-function pruneSamples(state, now) {
-  const cutoff = now - LIVE_RATE_WINDOW_MS;
-  while (state.tokenSamples[0]?.at < cutoff) state.tokenSamples.shift();
-}
-
-function rollingRate(state, now) {
-  const tokens = state.tokenSamples.reduce(
-    (total, sample) => total + sample.tokens,
-    0,
-  );
-  const elapsedMs = Math.max(
-    MIN_RATE_WINDOW_MS,
-    Math.min(LIVE_RATE_WINDOW_MS, now - state.startedAt),
-  );
+function averageRate(tokens, startedAt, now) {
+  const elapsedMs = Math.max(MIN_RATE_WINDOW_MS, now - startedAt);
   return (tokens * 1000) / elapsedMs;
 }
 

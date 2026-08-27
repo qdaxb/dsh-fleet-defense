@@ -16,6 +16,73 @@ window.__ModuleLoader__.load({
       "/ai-fleet-defense/assets/neural-rift-battlefield.png";
     const GAME_SECONDS = 180;
     const BOSS_SECONDS = 120;
+    const RECOMMENDED_PARALLEL_UNITS = 4;
+    const MAX_ACTIVE_ENEMIES = 22;
+    const WINGMAN_PROJECTILE_OFFSETS = [-9.5, 9.2, -6, 5.7, 0];
+    const ENEMY_BLUEPRINTS = {
+      scout: {
+        name: "深空猎手",
+        baseHp: 34,
+        hpGrowth: 0.42,
+        speed: 11.5,
+        speedGrowth: 55,
+        breachDamage: 11,
+        score: 100,
+        comboScore: 8,
+      },
+      heavy: {
+        name: "重装破阵舰",
+        baseHp: 74,
+        hpGrowth: 0.65,
+        speed: 7,
+        speedGrowth: 90,
+        breachDamage: 20,
+        score: 240,
+        comboScore: 10,
+      },
+      striker: {
+        name: "跃迁突袭舰",
+        baseHp: 48,
+        hpGrowth: 0.48,
+        speed: 13.8,
+        speedGrowth: 72,
+        breachDamage: 15,
+        score: 165,
+        comboScore: 9,
+      },
+      shield: {
+        name: "棱镜护卫舰",
+        baseHp: 62,
+        hpGrowth: 0.56,
+        speed: 8.4,
+        speedGrowth: 105,
+        breachDamage: 18,
+        score: 230,
+        comboScore: 11,
+        baseShield: 42,
+        shieldGrowth: 0.3,
+      },
+      carrier: {
+        name: "蜂群播种舰",
+        baseHp: 112,
+        hpGrowth: 0.72,
+        speed: 6.2,
+        speedGrowth: 150,
+        breachDamage: 28,
+        score: 360,
+        comboScore: 13,
+      },
+      drone: {
+        name: "裂隙无人机",
+        baseHp: 24,
+        hpGrowth: 0.24,
+        speed: 15.5,
+        speedGrowth: 95,
+        breachDamage: 8,
+        score: 70,
+        comboScore: 6,
+      },
+    };
 
     function FleetDefenseRoute() {
       const [telemetry, setTelemetry] = useState(emptyTelemetry);
@@ -24,7 +91,7 @@ window.__ModuleLoader__.load({
       const [storageError, setStorageError] = useState("");
       const [ultimateDeniedTick, setUltimateDeniedTick] = useState(0);
       const telemetryRef = useRef(telemetry);
-      const inputRef = useRef({ lane: 1, ultimate: false });
+      const inputRef = useRef({ lane: 1, ultimate: false, tactical: null });
       const submittedScoreRef = useRef(null);
       const gameRef = useRef(game);
       gameRef.current = game;
@@ -76,6 +143,10 @@ window.__ModuleLoader__.load({
       }, [refreshLeaderboard]);
 
       useEffect(() => {
+        const requestTactical = (tactical) => {
+          if (gameRef.current.status === "running")
+            inputRef.current.tactical = tactical;
+        };
         const onKey = (event) => {
           if (event.key === "ArrowUp" || event.key.toLowerCase() === "w")
             inputRef.current.lane = Math.max(0, inputRef.current.lane - 1);
@@ -84,11 +155,16 @@ window.__ModuleLoader__.load({
           if (event.key === " ") {
             event.preventDefault();
             const current = gameRef.current;
-            if (current.status === "running" && current.ultimate >= 100)
+            if (current.status !== "running") {
+              submittedScoreRef.current = null;
+              setGame(createGame(true));
+            } else if (current.ultimate >= 100)
               inputRef.current.ultimate = true;
-            else if (current.status === "running")
+            else
               setUltimateDeniedTick((value) => value + 1);
           }
+          if (event.key === "1") requestTactical("emp");
+          if (event.key === "2") requestTactical("repair");
           if (event.key === "Escape") returnToWorkbench();
         };
         window.addEventListener("keydown", onKey);
@@ -103,11 +179,17 @@ window.__ModuleLoader__.load({
           previous = now;
           const input = inputRef.current;
           const ultimateRequested = input.ultimate;
+          const tacticalRequested = input.tactical;
           input.ultimate = false;
+          input.tactical = null;
           setGame((current) =>
             advanceGame(
               current,
-              { ...input, ultimate: ultimateRequested },
+              {
+                ...input,
+                ultimate: ultimateRequested,
+                tactical: tacticalRequested,
+              },
               telemetryRef.current,
               dt,
             ),
@@ -163,7 +245,7 @@ window.__ModuleLoader__.load({
               null,
               h("div", { className: "afd-eyebrow" }, "WEWORK PARALLEL OPS // LIVE"),
               h("h1", null, "AI 舰队 · 零号防线"),
-              h("p", null, "旗舰可独立作战；正在工作的 AI 会跃迁成为增援"),
+              h("p", null, "旗舰负责引导火力；至少 4 个并发 AI 才能形成完整防线"),
             ),
           ),
           h(
@@ -215,7 +297,9 @@ window.__ModuleLoader__.load({
                 hud("COMBO", game.combo ? `×${game.combo}` : "—", game.combo >= 5),
                 hud(
                   "CORE SHIELD",
-                  `${Math.max(0, Math.round(game.hp))}%`,
+                  `${Math.max(0, Math.round(game.hp))}%${
+                    game.barrierTimer > 0 ? " ◈" : ""
+                  }`,
                   game.hp <= 35,
                 ),
                 hud(
@@ -305,11 +389,18 @@ window.__ModuleLoader__.load({
                 ),
                 game.projectiles.map((projectile) =>
                   h("span", {
-                    className: "afd-projectile",
+                    className:
+                      projectile.source === "wingman"
+                        ? "afd-projectile afd-projectile-wingman"
+                        : "afd-projectile",
                     key: projectile.id,
                     style: {
                       left: `${projectile.x}%`,
-                      top: `${16.667 + projectile.lane * 33.333}%`,
+                      top: `${
+                        16.667 +
+                        projectile.lane * 33.333 +
+                        (projectile.yOffset ?? 0)
+                      }%`,
                       width: `${28 + projectile.power * 5}px`,
                     },
                   }),
@@ -318,7 +409,13 @@ window.__ModuleLoader__.load({
                   h(
                     "div",
                     {
-                      className: "afd-enemy-wrap",
+                      className: [
+                        "afd-enemy-wrap",
+                        `afd-enemy-kind-${enemy.kind}`,
+                        enemy.elite ? "afd-enemy-elite" : "",
+                      ]
+                        .join(" ")
+                        .trim(),
                       key: enemy.id,
                       style: {
                         left: `${Math.max(9, enemy.x)}%`,
@@ -328,9 +425,28 @@ window.__ModuleLoader__.load({
                     h(
                       "div",
                       { className: enemy.boss ? "afd-boss-label" : "afd-enemy-label" },
-                      enemy.boss ? "NEMESIS // 母体" : enemyName(enemy.kind),
+                      enemy.boss
+                        ? "NEMESIS // 母体"
+                        : `${enemy.elite ? "ELITE // " : ""}${enemyName(enemy.kind)}`,
                     ),
                     h(EnemyShip, { boss: enemy.boss, kind: enemy.kind }),
+                    enemy.maxShield
+                      ? h(
+                          "div",
+                          {
+                            className: "afd-enemy-shield",
+                            title: "棱镜护盾",
+                          },
+                          h("span", {
+                            style: {
+                              width: `${Math.max(
+                                0,
+                                (enemy.shield / enemy.maxShield) * 100,
+                              )}%`,
+                            },
+                          }),
+                        )
+                      : null,
                     h(
                       "div",
                       {
@@ -350,11 +466,23 @@ window.__ModuleLoader__.load({
                     className:
                       burst.kind === "ultimate"
                         ? "afd-ultimate-burst"
-                        : "afd-impact-burst",
+                        : burst.kind === "emp"
+                          ? "afd-emp-burst"
+                          : burst.kind === "repair"
+                            ? "afd-repair-burst"
+                            : burst.kind === "breach"
+                              ? "afd-breach-burst"
+                              : burst.source === "wingman"
+                                ? "afd-impact-burst afd-impact-burst-wingman"
+                                : "afd-impact-burst",
                     key: burst.id,
                     style: {
-                      left: `${burst.x}%`,
-                      top: `${16.667 + burst.lane * 33.333}%`,
+                      left: `${burst.x + (burst.xOffset ?? 0)}%`,
+                      top: `${
+                        16.667 +
+                        burst.lane * 33.333 +
+                        (burst.yOffset ?? 0)
+                      }%`,
                     },
                   }),
                 ),
@@ -394,7 +522,7 @@ window.__ModuleLoader__.load({
                   h(
                     "div",
                     { className: "afd-charge-title" },
-                    h("span", null, "NEURAL OVERDRIVE // 全舰齐射"),
+                    h("span", null, "TACTICAL ENERGY // 战术能量"),
                     h("b", null, `${Math.floor(game.ultimate)}%`),
                   ),
                   h(
@@ -409,34 +537,58 @@ window.__ModuleLoader__.load({
                     null,
                     telemetry.tokensPerSecond > 0
                       ? `${formatNumber(telemetry.tokensPerSecond)} token/s 正在额外加速充能`
-                      : "旗舰反应堆正在基础充能，AI 增援可进一步提速",
+                      : "可提前使用战术道具，也可蓄满释放裂隙核爆",
                   ),
                 ),
                 h(
-                  "button",
-                  {
-                    type: "button",
-                    key: ultimateDeniedTick,
-                    className: [
-                      "afd-ultimate",
-                      game.ultimate >= 100 ? "afd-ultimate-ready" : "",
-                      ultimateDeniedTick ? "afd-ultimate-denied" : "",
-                    ]
-                      .join(" ")
-                      .trim(),
-                    disabled: game.ultimate < 100,
-                    "data-testid": "ai-fleet-defense-ultimate",
-                    onClick: () => {
-                      if (gameRef.current.ultimate >= 100)
-                        inputRef.current.ultimate = true;
-                      else setUltimateDeniedTick((value) => value + 1);
+                  "div",
+                  { className: "afd-tactical-buttons" },
+                  tacticalButton(
+                    "1",
+                    "EMP 脉冲",
+                    "40",
+                    game.ultimate >= 40,
+                    game.empTimer > 0,
+                    () => {
+                      inputRef.current.tactical = "emp";
                     },
-                  },
-                  h("small", null, "SPACE"),
+                  ),
+                  tacticalButton(
+                    "2",
+                    "维修蜂群",
+                    "55",
+                    game.ultimate >= 55 && game.hp < 100,
+                    game.barrierTimer > 0,
+                    () => {
+                      inputRef.current.tactical = "repair";
+                    },
+                  ),
                   h(
-                    "b",
-                    null,
-                    game.ultimate >= 100 ? "释放齐射" : "充能中",
+                    "button",
+                    {
+                      type: "button",
+                      key: ultimateDeniedTick,
+                      className: [
+                        "afd-ultimate",
+                        game.ultimate >= 100 ? "afd-ultimate-ready" : "",
+                        ultimateDeniedTick ? "afd-ultimate-denied" : "",
+                      ]
+                        .join(" ")
+                        .trim(),
+                      disabled: game.ultimate < 100,
+                      "data-testid": "ai-fleet-defense-ultimate",
+                      onClick: () => {
+                        if (gameRef.current.ultimate >= 100)
+                          inputRef.current.ultimate = true;
+                        else setUltimateDeniedTick((value) => value + 1);
+                      },
+                    },
+                    h("small", null, "SPACE"),
+                    h(
+                      "b",
+                      null,
+                      game.ultimate >= 100 ? "裂隙核爆" : "100 能量",
+                    ),
                   ),
                 ),
               ),
@@ -451,11 +603,11 @@ window.__ModuleLoader__.load({
                 h(
                   "div",
                   null,
-                  h("b", null, "无任务也能战斗，有任务就组成舰队"),
+                  h("b", null, "单舰只能拖延，四机协同才能稳定守住终局"),
                   h(
                     "small",
                     null,
-                    "旗舰始终自动开火；Wework 会把所有执行中 Session 的实时输出转化为僚机、射速、伤害与充能加成",
+                    "旗舰与每架僚机都会发射独立弹道；Wework 会把所有执行中 Session 的实时输出转化为齐射规模、射速、伤害与充能加成",
                   ),
                 ),
               ),
@@ -514,11 +666,11 @@ window.__ModuleLoader__.load({
                     { className: "afd-empty-fleet" },
                     h("span", { className: "afd-reactor" }),
                     h("b", null, "旗舰反应堆已上线"),
-                    h("p", null, "基础自动炮与大招充能正常，可独立完成整局。"),
+                    h("p", null, "基础自动炮只能拖延敌军，无法独立守住终局。"),
                     h(
                       "small",
                       null,
-                      "并行启动 AI 任务后，僚机会自动跃迁增援。",
+                      "建议并行启动至少 4 个 AI 任务组成完整舰队。",
                     ),
                   ),
               telemetry.activeSessions > 5
@@ -570,9 +722,10 @@ window.__ModuleLoader__.load({
               { className: "afd-card afd-protocol" },
               sideTitle("PROTOCOL", "作战指令", "180 SEC"),
               protocol("01", "切换航道", "点击战场或按 W / S"),
-              protocol("02", "旗舰自动开火", "零任务也拥有完整基础火力"),
-              protocol("03", "AI 自动增援", "并行任务提升射速、伤害与充能"),
-              protocol("04", "释放全舰齐射", "能量满后按空格清扫全场"),
+              protocol("02", "旗舰自动开火", "基础火力只能延缓敌军推进"),
+              protocol("03", "四机成阵", "建议至少 4 个并发任务稳定通关"),
+              protocol("04", "使用战术道具", "按 1 释放 EMP，按 2 呼叫维修"),
+              protocol("05", "释放裂隙核爆", "对全场造成伤害，Boss 不会被秒杀"),
             ),
           ),
         ),
@@ -620,12 +773,12 @@ window.__ModuleLoader__.load({
                 briefing(
                   "02",
                   "自动锁定开火",
-                  "旗舰自带基础反应堆，没有 AI 任务也能正常战斗",
+                  "旗舰自带基础反应堆，但单舰火力不足以守住终局",
                 ),
                 briefing(
                   "03",
                   "召集 AI 舰队",
-                  "执行中任务会成为僚机，实时 Token 输出增强全部火力",
+                  "每个执行中任务都会增强火力，至少 4 并发才有稳定胜算",
                 ),
               ),
           h(
@@ -640,7 +793,7 @@ window.__ModuleLoader__.load({
                 onClick: onStart,
               },
               h("span", null, ended ? "重新部署" : "启动防线"),
-              h("b", null, "→"),
+              h("b", null, "SPACE"),
             ),
             h(
               "button",
@@ -659,8 +812,10 @@ window.__ModuleLoader__.load({
                 { className: "afd-ready-state" },
                 h("i", null),
                 telemetry.activeSessions
-                  ? `旗舰火力在线，另有 ${telemetry.activeSessions} 个 AI 作战单元已连接`
-                  : "旗舰基础火力在线，可立即单舰出击",
+                  ? telemetry.activeSessions >= RECOMMENDED_PARALLEL_UNITS
+                    ? `完整舰队就绪：${telemetry.activeSessions} 个 AI 作战单元已连接`
+                    : `战力不足：还需 ${RECOMMENDED_PARALLEL_UNITS - telemetry.activeSessions} 个 AI 作战单元形成完整舰队`
+                  : "旗舰基础火力在线，但需要至少 4 个 AI 作战单元增援",
               )
             : null,
         ),
@@ -762,27 +917,81 @@ window.__ModuleLoader__.load({
           h("circle", { cx: "112", cy: "75", r: "17", fill: "#ffccdc" }),
           h("circle", { cx: "112", cy: "75", r: "9", fill: "#ff315d" }),
         );
-      const heavy = kind === "heavy";
+      const variants = {
+        scout: {
+          path: "M96 35 66 8 39 20 4 35l35 15 27 12Z",
+          fill: "#31162a",
+          stroke: "#ff5d78",
+          width: 58,
+          height: 42,
+          coreX: 51,
+          coreRadius: 6,
+        },
+        heavy: {
+          path: "M96 35 69 4 37 17 5 35l32 18 32 13Z",
+          fill: "#46162b",
+          stroke: "#ff829c",
+          width: 72,
+          height: 52,
+          coreX: 46,
+          coreRadius: 8,
+        },
+        striker: {
+          path: "M98 35 58 9 67 27 7 35l60 8-9 18Z",
+          fill: "#4a123e",
+          stroke: "#ff63d7",
+          width: 62,
+          height: 44,
+          coreX: 57,
+          coreRadius: 6,
+        },
+        shield: {
+          path: "M95 35 70 8 29 10 5 35l24 25 41 2Z",
+          fill: "#182d4f",
+          stroke: "#78d9ff",
+          width: 70,
+          height: 50,
+          coreX: 48,
+          coreRadius: 8,
+        },
+        carrier: {
+          path: "M97 35 75 5 48 14 18 7 4 35l14 28 30-7 27 9Z",
+          fill: "#4b1d35",
+          stroke: "#ffb064",
+          width: 80,
+          height: 58,
+          coreX: 49,
+          coreRadius: 10,
+        },
+        drone: {
+          path: "M96 35 61 17 37 27 6 35l31 8 24 10Z",
+          fill: "#401323",
+          stroke: "#ffcf72",
+          width: 46,
+          height: 34,
+          coreX: 52,
+          coreRadius: 5,
+        },
+      };
+      const variant = variants[kind] ?? variants.scout;
       return h(
         "svg",
         {
           className: "afd-enemy",
           viewBox: "0 0 100 70",
-          width: heavy ? 72 : 58,
-          height: heavy ? 52 : 42,
+          width: variant.width,
+          height: variant.height,
         },
         h("path", {
-          d: heavy
-            ? "M96 35 69 4 37 17 5 35l32 18 32 13Z"
-            : "M96 35 66 8 39 20 4 35l35 15 27 12Z",
-          fill: heavy ? "#46162b" : "#31162a",
-          stroke: heavy ? "#ff829c" : "#ff5d78",
-          strokeWidth: heavy ? "3" : "2",
+          d: variant.path,
+          fill: variant.fill,
+          stroke: variant.stroke,
+          strokeWidth: kind === "heavy" || kind === "carrier" ? "3" : "2",
         }),
         h("circle", {
-          cx: heavy ? "46" : "51",
+          cx: variant.coreX,
           cy: "35",
-          r: heavy ? "8" : "6",
+          r: variant.coreRadius,
           fill: "#ffd0da",
         }),
       );
@@ -818,6 +1027,27 @@ window.__ModuleLoader__.load({
         },
         h("b", null, key),
         h("small", null, label),
+      );
+    }
+
+    function tacticalButton(key, label, cost, enabled, active, onClick) {
+      return h(
+        "button",
+        {
+          type: "button",
+          className: [
+            "afd-tactical",
+            enabled ? "afd-tactical-ready" : "",
+            active ? "afd-tactical-active" : "",
+          ]
+            .join(" ")
+            .trim(),
+          disabled: !enabled,
+          onClick,
+        },
+        h("small", null, key),
+        h("b", null, label),
+        h("span", null, active ? "生效中" : `${cost} 能量`),
       );
     }
 
@@ -871,6 +1101,8 @@ window.__ModuleLoader__.load({
         wave: 1,
         shotCooldown: 0,
         spawnCooldown: 0.8,
+        empTimer: 0,
+        barrierTimer: 0,
         bossSpawned: false,
         bossDefeated: false,
         nextEnemyId: 1,
@@ -895,12 +1127,24 @@ window.__ModuleLoader__.load({
           .filter((projectile) => projectile.x < 102 && projectile.age < 1),
         bursts: game.bursts
           .map((burst) => ({ ...burst, age: burst.age + dt }))
-          .filter((burst) => burst.age < (burst.kind === "ultimate" ? 0.9 : 0.5)),
+          .filter(
+            (burst) =>
+              burst.age <
+              (burst.kind === "ultimate"
+                ? 0.9
+                : burst.kind === "emp" || burst.kind === "repair"
+                  ? 0.8
+                  : burst.kind === "breach"
+                    ? 0.75
+                    : 0.5),
+          ),
         elapsed: game.elapsed + dt,
         playerLane: input.lane,
         shotCooldown: game.shotCooldown - dt,
         spawnCooldown: game.spawnCooldown - dt,
-        wave: Math.min(9, 1 + Math.floor(game.elapsed / 22)),
+        empTimer: Math.max(0, game.empTimer - dt),
+        barrierTimer: Math.max(0, game.barrierTimer - dt),
+        wave: Math.min(12, 1 + Math.floor((game.elapsed + dt) / 16)),
         ultimate: Math.min(
           100,
           game.ultimate + dt * Number(telemetry.ultimateChargePerSecond ?? 4),
@@ -910,37 +1154,96 @@ window.__ModuleLoader__.load({
       const active = Math.max(0, Number(telemetry.activeSessions ?? 0));
       const synergy = Math.max(1, Number(telemetry.synergy ?? 1));
 
-      // The flagship always has a complete baseline weapon. AI work is a bonus.
-      const fireInterval = Math.max(0.1, 0.62 - Math.log1p(tps) * 0.085);
-      const damage = 16 + Math.sqrt(tps) * 2.25 + Math.min(5, active) * 2.5;
+      const fleetReadiness = Math.min(
+        1,
+        active / RECOMMENDED_PARALLEL_UNITS,
+      );
+      const fireInterval = Math.max(
+        0.14,
+        0.88 - fleetReadiness * 0.38 - Math.log1p(tps) * 0.045,
+      );
+      const damage = 9 + fleetReadiness * 18 + Math.sqrt(tps) * 1.15;
+      const wingmanCount = Math.min(5, Math.floor(active));
+      const volleySize = 1 + wingmanCount;
+      const volleyDamage = damage * synergy;
       while (next.shotCooldown <= 0) {
         next.shotCooldown += fireInterval;
         const target = next.enemies
           .filter((enemy) => enemy.lane === next.playerLane)
           .sort((left, right) => left.x - right.x)[0];
         if (target) {
-          target.hp -= damage * synergy;
-          next.projectiles.push({
-            id: `p-${next.nextEffectId++}`,
-            lane: next.playerLane,
-            x: 13,
-            age: 0,
-            power: Math.min(4, 1 + tps / 80),
-          });
+          for (let emitter = 0; emitter < volleySize; emitter += 1) {
+            const wingmanIndex = emitter - 1;
+            next.projectiles.push({
+              id: `p-${next.nextEffectId++}`,
+              lane: next.playerLane,
+              x: emitter === 0 ? 13 : 10 + (wingmanIndex % 2) * 2,
+              yOffset:
+                emitter === 0
+                  ? 0
+                  : WINGMAN_PROJECTILE_OFFSETS[wingmanIndex],
+              age: 0,
+              power: Math.min(
+                4,
+                (emitter === 0 ? 1 : 0.65) + tps / 80,
+              ),
+              damage: volleyDamage / volleySize,
+              source: emitter === 0 ? "flagship" : "wingman",
+              impactXOffset:
+                emitter === 0
+                  ? 0
+                  : (wingmanIndex % 2 === 0 ? -1 : 1) *
+                    (1.2 + Math.floor(wingmanIndex / 2) * 0.8),
+            });
+          }
+        }
+      }
+
+      if (input.tactical === "emp" && next.ultimate >= 40) {
+        next.ultimate -= 40;
+        next.empTimer = Math.max(next.empTimer, 6);
+        for (const enemy of next.enemies) {
+          enemy.shield = Math.max(0, enemy.shield - 55);
           next.bursts.push({
-            id: `i-${next.nextEffectId++}`,
-            lane: target.lane,
-            x: target.x,
+            id: `e-${next.nextEffectId++}`,
+            lane: enemy.lane,
+            x: enemy.x,
             age: 0,
-            kind: "impact",
+            kind: "emp",
           });
         }
+      }
+      if (
+        input.tactical === "repair" &&
+        next.ultimate >= 55 &&
+        next.hp < 100
+      ) {
+        next.ultimate -= 55;
+        next.hp = Math.min(100, next.hp + 28);
+        next.barrierTimer = Math.max(next.barrierTimer, 8);
+        next.bursts.push({
+          id: `r-${next.nextEffectId++}`,
+          lane: next.playerLane,
+          x: 13,
+          age: 0,
+          kind: "repair",
+        });
       }
 
       if (input.ultimate && next.ultimate >= 100) {
         next.ultimate = 0;
+        const blastDamage =
+          110 + Math.min(90, Math.sqrt(tps) * 5);
         for (const enemy of next.enemies) {
-          enemy.hp -= 230 + tps * 0.85;
+          let remainingDamage = enemy.boss
+            ? Math.min(240, blastDamage * 0.75)
+            : blastDamage;
+          if (enemy.shield > 0) {
+            const absorbed = Math.min(enemy.shield, remainingDamage);
+            enemy.shield -= absorbed;
+            remainingDamage -= absorbed;
+          }
+          enemy.hp -= remainingDamage;
           next.bursts.push({
             id: `u-${next.nextEffectId++}`,
             lane: enemy.lane,
@@ -954,37 +1257,128 @@ window.__ModuleLoader__.load({
       if (next.spawnCooldown <= 0) {
         const boss = !next.bossSpawned && next.elapsed >= BOSS_SECONDS;
         next.bossSpawned ||= boss;
-        const kind =
-          boss || Math.random() < Math.min(0.62, next.elapsed / 260)
-            ? "heavy"
-            : "scout";
-        const maxHp = boss
-          ? 1150
-          : kind === "heavy"
-            ? 74 + next.elapsed * 0.65
-            : 34 + next.elapsed * 0.42;
-        next.enemies.push({
-          id: next.nextEnemyId++,
-          lane: boss ? 1 : Math.floor(Math.random() * 3),
-          x: 95,
-          hp: maxHp,
-          maxHp,
-          boss,
-          kind,
-        });
+        const availableSlots = MAX_ACTIVE_ENEMIES - next.enemies.length;
+        const legacyHeavy =
+          Math.random() < Math.min(0.62, next.elapsed / 260);
+        if (boss && availableSlots > 0) {
+          next.enemies.push(createBoss(next));
+          if (availableSlots > 1)
+            next.enemies.push(createEnemy(next, "striker", 0, 99, false));
+          if (availableSlots > 2)
+            next.enemies.push(createEnemy(next, "shield", 2, 99, false));
+        } else {
+          const batchSize = Math.min(
+            availableSlots,
+            next.elapsed >= 150
+              ? 2 + (Math.random() < 0.32 ? 1 : 0)
+              : next.elapsed >= 105 && Math.random() < 0.48
+                ? 2
+                : 1,
+          );
+          for (let index = 0; index < batchSize; index += 1) {
+            const kind = chooseEnemyKind(
+              next.elapsed,
+              Math.random(),
+              legacyHeavy,
+            );
+            const lane =
+              batchSize >= 3 ? index % 3 : Math.floor(Math.random() * 3);
+            const elite =
+              next.elapsed >= 138 &&
+              Math.random() <
+                Math.min(0.36, 0.1 + (next.elapsed - 138) / 180);
+            next.enemies.push(
+              createEnemy(next, kind, lane, 95 + index * 3, elite),
+            );
+          }
+        }
         next.spawnCooldown = boss
-          ? 4
-          : Math.max(0.48, 1.35 - next.elapsed / 205);
+          ? 2.6
+          : Math.max(
+              0.46,
+              1.15 -
+                next.elapsed / 230 -
+                Math.max(0, next.elapsed - BOSS_SECONDS) / 170,
+            );
       }
 
+      const deployedDrones = [];
       for (const enemy of next.enemies) {
         const speed = enemy.boss
           ? 4.5
           : enemy.kind === "heavy"
             ? 7 + next.elapsed / 90
-            : 11.5 + next.elapsed / 55;
-        enemy.x -= dt * speed;
+            : enemy.kind === "scout"
+              ? 11.5 + next.elapsed / 55
+              : enemySpeed(enemy, next.elapsed);
+        const empSlow = next.empTimer > 0 ? 0.42 : 1;
+        enemy.x -= dt * speed * (enemy.elite ? 1.1 : 1) * empSlow;
+        if (enemy.kind === "striker") {
+          enemy.laneShiftCooldown -= dt;
+          if (enemy.laneShiftCooldown <= 0 && enemy.x > 34) {
+            const direction =
+              enemy.lane === 0
+                ? 1
+                : enemy.lane === 2
+                  ? -1
+                  : Math.random() < 0.5
+                    ? -1
+                    : 1;
+            enemy.lane += direction;
+            enemy.laneShiftCooldown = 2.2 + Math.random() * 1.4;
+          }
+        }
+        if (enemy.kind === "carrier" && !enemy.deployed && enemy.x <= 58) {
+          enemy.deployed = true;
+          for (const laneOffset of [-1, 1]) {
+            const lane = enemy.lane + laneOffset;
+            if (
+              lane >= 0 &&
+              lane <= 2 &&
+              next.enemies.length + deployedDrones.length <
+                MAX_ACTIVE_ENEMIES
+            )
+              deployedDrones.push(
+                createEnemy(next, "drone", lane, enemy.x + 4, enemy.elite),
+              );
+          }
+        }
       }
+      next.enemies.push(...deployedDrones);
+      const flyingProjectiles = [];
+      for (const projectile of next.projectiles) {
+        const target = next.enemies
+          .filter(
+            (enemy) =>
+              enemy.hp > 0 &&
+              enemy.x > 9 &&
+              enemy.lane === projectile.lane &&
+              enemy.x <= projectile.x,
+          )
+          .sort((left, right) => left.x - right.x)[0];
+        if (!target) {
+          flyingProjectiles.push(projectile);
+          continue;
+        }
+        let remainingDamage = projectile.damage;
+        if (target.shield > 0) {
+          const absorbed = Math.min(target.shield, remainingDamage);
+          target.shield -= absorbed;
+          remainingDamage -= absorbed;
+        }
+        target.hp -= remainingDamage;
+        next.bursts.push({
+          id: `i-${next.nextEffectId++}`,
+          lane: target.lane,
+          x: target.x,
+          age: 0,
+          kind: "impact",
+          source: projectile.source,
+          xOffset: projectile.impactXOffset,
+          yOffset: projectile.yOffset,
+        });
+      }
+      next.projectiles = flyingProjectiles;
       const destroyed = next.enemies.filter((enemy) => enemy.hp <= 0);
       if (destroyed.length) {
         next.combo += destroyed.length;
@@ -995,9 +1389,7 @@ window.__ModuleLoader__.load({
             total +
             (enemy.boss
               ? 6000
-              : enemy.kind === "heavy"
-                ? 240 + Math.min(640, next.combo * 10)
-                : 100 + Math.min(500, next.combo * 8)),
+              : enemyScore(enemy, next.combo)),
           0,
         );
       }
@@ -1005,11 +1397,21 @@ window.__ModuleLoader__.load({
         (enemy) => enemy.hp > 0 && enemy.x <= 9,
       );
       if (breached.length) {
-        next.hp -= breached.reduce(
+        const breachDamage = breached.reduce(
           (total, enemy) =>
-            total + (enemy.boss ? 55 : enemy.kind === "heavy" ? 20 : 11),
+            total + (enemy.boss ? 55 : enemyBreachDamage(enemy)),
           0,
         );
+        next.hp -= breachDamage * (next.barrierTimer > 0 ? 0.6 : 1);
+        for (const enemy of breached) {
+          next.bursts.push({
+            id: `b-${next.nextEffectId++}`,
+            lane: enemy.lane,
+            x: 9,
+            age: 0,
+            kind: "breach",
+          });
+        }
         next.combo = 0;
       }
       next.enemies = next.enemies.filter(
@@ -1024,6 +1426,73 @@ window.__ModuleLoader__.load({
         );
       }
       return next;
+    }
+
+    function chooseEnemyKind(elapsed, roll, legacyHeavy) {
+      if (elapsed >= 105 && roll < 0.17) return "carrier";
+      if (elapsed >= 72 && roll < 0.36) return "shield";
+      if (elapsed >= 38 && roll < 0.58) return "striker";
+      return legacyHeavy ? "heavy" : "scout";
+    }
+
+    function createEnemy(game, kind, lane, x = 95, elite = false) {
+      const blueprint = ENEMY_BLUEPRINTS[kind];
+      const eliteMultiplier = elite ? 1.35 : 1;
+      const maxHp =
+        (blueprint.baseHp + game.elapsed * blueprint.hpGrowth) *
+        eliteMultiplier;
+      const maxShield = blueprint.baseShield
+        ? (blueprint.baseShield + game.elapsed * blueprint.shieldGrowth) *
+          eliteMultiplier
+        : 0;
+      return {
+        id: game.nextEnemyId++,
+        lane,
+        x,
+        hp: maxHp,
+        maxHp,
+        shield: maxShield,
+        maxShield,
+        boss: false,
+        kind,
+        elite,
+        deployed: false,
+        laneShiftCooldown: 1.6 + Math.random() * 1.6,
+      };
+    }
+
+    function createBoss(game) {
+      return {
+        id: game.nextEnemyId++,
+        lane: 1,
+        x: 95,
+        hp: 1600,
+        maxHp: 1600,
+        shield: 0,
+        maxShield: 0,
+        boss: true,
+        kind: "heavy",
+        elite: false,
+      };
+    }
+
+    function enemySpeed(enemy, elapsed) {
+      const blueprint = ENEMY_BLUEPRINTS[enemy.kind];
+      return blueprint.speed + elapsed / blueprint.speedGrowth;
+    }
+
+    function enemyScore(enemy, combo) {
+      const blueprint = ENEMY_BLUEPRINTS[enemy.kind];
+      return (
+        blueprint.score +
+        Math.min(720, combo * blueprint.comboScore) +
+        (enemy.elite ? 180 : 0)
+      );
+    }
+
+    function enemyBreachDamage(enemy) {
+      const damage = ENEMY_BLUEPRINTS[enemy.kind].breachDamage;
+      return Math.round(damage * (enemy.elite ? 1.3 : 1));
     }
 
     async function submitScore(game) {
@@ -1116,13 +1585,14 @@ window.__ModuleLoader__.load({
 
     function synergyHint(activeSessions) {
       if (activeSessions >= 5) return "协同上限";
-      if (activeSessions >= 2) return `再增 ${5 - activeSessions} 个达上限`;
-      if (activeSessions === 1) return "再并行 1 个触发协同";
-      return "旗舰可独立作战";
+      if (activeSessions >= RECOMMENDED_PARALLEL_UNITS) return "完整战阵";
+      if (activeSessions > 0)
+        return `还差 ${RECOMMENDED_PARALLEL_UNITS - activeSessions} 个形成战阵`;
+      return "至少需要 4 个并发";
     }
 
     function enemyName(kind) {
-      return kind === "heavy" ? "重装破阵舰" : "深空猎手";
+      return ENEMY_BLUEPRINTS[kind]?.name ?? ENEMY_BLUEPRINTS.scout.name;
     }
 
     function laneName(lane) {
@@ -1150,7 +1620,7 @@ window.__ModuleLoader__.load({
       activeSessions: 0,
       tokensPerSecond: 0,
       synergy: 1,
-      ultimateChargePerSecond: 4,
+      ultimateChargePerSecond: 1.6,
       sessions: [],
     };
 
@@ -1161,6 +1631,9 @@ window.__ModuleLoader__.load({
       @keyframes afd-enemy{0%,100%{transform:rotate(-1deg)}50%{transform:rotate(2deg)}}
       @keyframes afd-impact{0%{opacity:1;transform:translate(-50%,-50%) scale(.2)}100%{opacity:0;transform:translate(-50%,-50%) scale(2.5)}}
       @keyframes afd-ultimate{0%{opacity:1;transform:translate(-50%,-50%) scale(.2)}100%{opacity:0;transform:translate(-50%,-50%) scale(6)}}
+      @keyframes afd-emp{0%{opacity:1;transform:translate(-50%,-50%) scale(.2)}100%{opacity:0;transform:translate(-50%,-50%) scale(4.6)}}
+      @keyframes afd-repair{0%{opacity:1;transform:translate(-50%,-50%) scale(.3)}45%{opacity:.9}100%{opacity:0;transform:translate(-50%,-50%) scale(3.4)}}
+      @keyframes afd-breach{0%{opacity:1;transform:translate(-50%,-50%) scale(.2)}35%{opacity:1}100%{opacity:0;transform:translate(-50%,-50%) scale(3.8)}}
       @keyframes afd-ready{0%,100%{box-shadow:0 0 20px rgba(77,232,255,.25)}50%{box-shadow:0 0 42px rgba(77,232,255,.72)}}
       @keyframes afd-denied{0%,100%{box-shadow:0 0 0 rgba(255,93,120,0)}20%,60%{box-shadow:0 0 22px rgba(255,93,120,.85);border-color:#ff5d78;color:#ffb3c2}} .afd-ultimate-denied{animation:afd-denied .7s ease-out}
       .afd-exit{background:rgba(79,111,145,.12);border:1px solid rgba(126,178,219,.28);border-radius:9px;color:#9fd6ec;cursor:pointer;font-size:11px;font-weight:700;min-height:34px;padding:0 13px;transition:.2s}.afd-exit:hover{background:rgba(126,218,244,.16);border-color:rgba(126,218,244,.5);color:#e9fbff}.afd-exit-overlay{align-self:center;margin-top:10px}
@@ -1176,11 +1649,11 @@ window.__ModuleLoader__.load({
       .afd-mission-badge{align-items:center;background:rgba(5,16,31,.65);border:1px solid rgba(92,198,225,.2);border-radius:999px;color:#a6bfd2;display:flex;font-size:10px;gap:7px;left:18px;letter-spacing:1.4px;padding:6px 10px;position:absolute;top:16px;z-index:8}.afd-mission-badge i,.afd-ready-state i{animation:afd-pulse 1.4s infinite;background:#4de8ff;border-radius:50%;box-shadow:0 0 8px #4de8ff;height:6px;width:6px}.afd-enemy-zone{color:rgba(255,112,140,.72);font-size:9px;letter-spacing:2px;position:absolute;right:18px;top:19px;z-index:8}
       .afd-lane{appearance:none;background:transparent;border:0;border-bottom:1px solid rgba(128,167,197,.08);box-sizing:border-box;cursor:pointer;height:33.333%;left:0;padding:0;position:absolute;right:0;transition:.25s;z-index:1}.afd-lane-active{background:linear-gradient(90deg,rgba(77,232,255,.08),transparent 58%);border-color:rgba(77,232,255,.32)}.afd-lane span{color:#678096;font-size:8px;font-weight:800;left:16px;letter-spacing:1.2px;position:absolute;top:12px}.afd-lane-active span{color:#7cf4ff}
       .afd-player-formation{height:1px;left:8%;position:absolute;transition:top .2s cubic-bezier(.2,.8,.2,1);width:1px;z-index:4}.afd-player-label{background:rgba(5,20,35,.8);border:1px solid rgba(77,232,255,.36);border-radius:5px;font-size:8px;left:18px;padding:3px 6px;position:absolute;top:-52px;white-space:nowrap}.afd-player{animation:afd-float 2.2s infinite;filter:drop-shadow(0 0 9px rgba(77,232,255,.4));left:-24px;position:absolute;top:0}.afd-player.boosted{filter:drop-shadow(0 0 15px rgba(77,232,255,.9))}.afd-engine-trail{background:linear-gradient(90deg,transparent,rgba(77,232,255,.8));filter:blur(3px);height:10px;left:-24px;position:absolute;top:30px;width:44px}
-      .afd-wingman{animation:afd-wing 1.7s infinite;position:absolute}.afd-wingman>span{background:linear-gradient(90deg,transparent,rgba(132,126,255,.82));filter:blur(2px);height:4px;left:-14px;position:absolute;top:10px;width:24px}.afd-projectile{background:linear-gradient(90deg,transparent,#fff 72%,#4de8ff);border-radius:99px;box-shadow:0 0 14px #4de8ff;height:3px;position:absolute;transform:translateY(-50%);z-index:3}
-      .afd-enemy-wrap{align-items:center;display:flex;flex-direction:column;position:absolute;transform:translate(-50%,-50%);z-index:4}.afd-enemy-wrap::before{background:linear-gradient(90deg,transparent,rgba(255,70,104,.72));content:"";filter:blur(1px);height:4px;position:absolute;right:88%;top:50%;transform:translateY(-50%);width:64px}.afd-enemy-wrap::after{background:linear-gradient(90deg,transparent,rgba(255,166,187,.3));content:"";filter:blur(3px);height:12px;position:absolute;right:84%;top:50%;transform:translateY(-50%);width:34px}.afd-enemy,.afd-boss{animation:afd-enemy .9s ease-in-out infinite;filter:drop-shadow(0 0 12px rgba(255,49,93,.65))}.afd-enemy-label{color:#ff96a9;font-size:7px;letter-spacing:.8px}.afd-boss-label{background:rgba(74,4,31,.8);border:1px solid rgba(255,93,120,.5);border-radius:4px;color:#ffd4dd;font-size:8px;font-weight:800;letter-spacing:1.1px;padding:3px 7px}.afd-enemy-health{background:rgba(12,3,12,.8);border:1px solid rgba(255,117,145,.35);border-radius:99px;height:4px;overflow:hidden}.afd-enemy-health span{background:linear-gradient(90deg,#ff315d,#ff9aae);box-shadow:0 0 8px #ff315d;display:block;height:100%;transition:width .12s}
-      .afd-impact-burst,.afd-ultimate-burst{border-radius:50%;pointer-events:none;position:absolute}.afd-impact-burst{animation:afd-impact .5s ease-out forwards;border:2px solid #74efff;box-shadow:0 0 18px #4de8ff;height:24px;width:24px}.afd-ultimate-burst{animation:afd-ultimate .9s ease-out forwards;background:rgba(181,156,255,.28);border:2px solid #fff;box-shadow:0 0 50px #b59cff;height:40px;width:40px}
+      .afd-wingman{animation:afd-wing 1.7s infinite;position:absolute}.afd-wingman>span{background:linear-gradient(90deg,transparent,rgba(132,126,255,.82));filter:blur(2px);height:4px;left:-14px;position:absolute;top:10px;width:24px}.afd-projectile{background:linear-gradient(90deg,transparent,#fff 72%,#4de8ff);border-radius:99px;box-shadow:0 0 14px #4de8ff;height:3px;position:absolute;transform:translateY(-50%);z-index:3}.afd-projectile-wingman{background:linear-gradient(90deg,transparent,#fff 68%,#b59cff);box-shadow:0 0 14px #8d7dff;height:2px}
+      .afd-enemy-wrap{align-items:center;display:flex;flex-direction:column;position:absolute;transform:translate(-50%,-50%);z-index:4}.afd-enemy-wrap::before{background:linear-gradient(90deg,transparent,rgba(255,70,104,.72));content:"";filter:blur(1px);height:4px;position:absolute;right:88%;top:50%;transform:translateY(-50%);width:64px}.afd-enemy-wrap::after{background:linear-gradient(90deg,transparent,rgba(255,166,187,.3));content:"";filter:blur(3px);height:12px;position:absolute;right:84%;top:50%;transform:translateY(-50%);width:34px}.afd-enemy-kind-striker::before{background:linear-gradient(90deg,transparent,rgba(255,80,220,.9));width:82px}.afd-enemy-kind-shield::after{background:linear-gradient(90deg,transparent,rgba(89,208,255,.55));height:18px}.afd-enemy-kind-carrier::before{background:linear-gradient(90deg,transparent,rgba(255,168,82,.88));height:6px;width:76px}.afd-enemy-kind-drone::before{background:linear-gradient(90deg,transparent,rgba(255,216,112,.92));width:46px}.afd-enemy-elite{filter:drop-shadow(0 0 9px rgba(255,218,94,.8))}.afd-enemy-elite .afd-enemy-label{color:#ffe27e;font-weight:900}.afd-enemy,.afd-boss{animation:afd-enemy .9s ease-in-out infinite;filter:drop-shadow(0 0 12px rgba(255,49,93,.65))}.afd-enemy-label{color:#ff96a9;font-size:7px;letter-spacing:.8px}.afd-boss-label{background:rgba(74,4,31,.8);border:1px solid rgba(255,93,120,.5);border-radius:4px;color:#ffd4dd;font-size:8px;font-weight:800;letter-spacing:1.1px;padding:3px 7px}.afd-enemy-shield,.afd-enemy-health{background:rgba(12,3,12,.8);border-radius:99px;height:4px;overflow:hidden}.afd-enemy-shield{border:1px solid rgba(105,223,255,.48);margin-bottom:2px;width:58px}.afd-enemy-shield span{background:linear-gradient(90deg,#368dff,#8ef5ff);box-shadow:0 0 9px #59dfff;display:block;height:100%;transition:width .12s}.afd-enemy-health{border:1px solid rgba(255,117,145,.35)}.afd-enemy-health span{background:linear-gradient(90deg,#ff315d,#ff9aae);box-shadow:0 0 8px #ff315d;display:block;height:100%;transition:width .12s}
+      .afd-impact-burst,.afd-ultimate-burst,.afd-emp-burst,.afd-repair-burst,.afd-breach-burst{border-radius:50%;pointer-events:none;position:absolute}.afd-impact-burst{animation:afd-impact .5s ease-out forwards;border:2px solid #74efff;box-shadow:0 0 18px #4de8ff;height:24px;width:24px}.afd-impact-burst-wingman{background:radial-gradient(circle,rgba(255,255,255,.92),rgba(181,156,255,.42) 42%,transparent 72%);border-color:#b59cff;box-shadow:0 0 18px #8d7dff;height:20px;width:20px}.afd-ultimate-burst{animation:afd-ultimate .9s ease-out forwards;background:rgba(181,156,255,.28);border:2px solid #fff;box-shadow:0 0 50px #b59cff;height:40px;width:40px}.afd-emp-burst{animation:afd-emp .8s ease-out forwards;background:rgba(74,222,255,.2);border:2px solid #8df7ff;box-shadow:0 0 34px #2dd9ff;height:34px;width:34px}.afd-repair-burst{animation:afd-repair .8s ease-out forwards;background:rgba(82,255,187,.22);border:2px solid #8effcf;box-shadow:0 0 34px #4dffb6;height:38px;width:38px}.afd-breach-burst{animation:afd-breach .75s ease-out forwards;background:radial-gradient(circle,rgba(255,238,191,.95),rgba(255,62,102,.52) 34%,transparent 72%);border:3px solid #ff617f;box-shadow:0 0 28px #ff315d,0 0 60px rgba(255,49,93,.75);height:52px;width:52px;z-index:5}
       .afd-overlay{align-items:center;backdrop-filter:blur(5px);background:rgba(2,7,17,.48);display:flex;inset:0;justify-content:center;padding:28px;position:absolute;z-index:20}.afd-overlay-card{align-items:center;background:linear-gradient(155deg,rgba(14,32,55,.96),rgba(4,13,27,.96));border:1px solid rgba(100,218,241,.32);border-radius:18px;box-shadow:0 26px 80px rgba(0,0,0,.52);display:flex;flex-direction:column;max-width:650px;padding:32px 38px 28px;text-align:center;width:72%}.afd-overlay-kicker{color:#58e4f7;font-size:9px;font-weight:800;letter-spacing:2.8px}.afd-overlay-card h2{font-size:28px;margin:8px 0 24px}.afd-briefing{display:grid;gap:9px;text-align:left;width:100%}.afd-briefing-row{align-items:center;background:rgba(116,177,219,.06);border:1px solid rgba(116,177,219,.12);border-radius:10px;display:grid;gap:12px;grid-template-columns:34px 1fr;padding:10px 13px}.afd-briefing-row>span{color:#53e6f8;font-size:11px;font-weight:900}.afd-briefing-row p{color:#829caf;font-size:10px;margin:3px 0 0}.afd-start{align-items:center;animation:afd-ready 2s infinite;background:linear-gradient(135deg,#66f1ff,#668dff);border:0;border-radius:9px;color:#03101f;cursor:pointer;display:flex;font-size:14px;font-weight:900;justify-content:space-between;margin-top:20px;padding:12px 16px;width:210px}.afd-ready-state{align-items:center;color:#8fa9be;display:flex;font-size:10px;gap:8px;margin-top:14px}.afd-result{display:grid;gap:5px}.afd-result strong{font-size:38px}
-      .afd-command-bar{align-items:center;background:linear-gradient(180deg,#0c192c,#081321);border-top:1px solid rgba(112,165,202,.16);display:grid;gap:18px;grid-template-columns:140px 1fr 150px;min-height:86px;padding:0 16px}.afd-move-buttons{display:flex;gap:7px}.afd-move{background:rgba(130,184,224,.08);border:1px solid rgba(130,184,224,.22);border-radius:7px;color:#e9f8ff;cursor:pointer;display:grid;height:48px;width:52px}.afd-move b{font-size:12px}.afd-move small{color:#6f879a;font-size:8px}.afd-charge{display:grid;gap:6px}.afd-charge-title{color:#83a0b7;display:flex;font-size:9px;justify-content:space-between}.afd-charge-track{background:#030a15;border:1px solid rgba(112,165,202,.18);border-radius:4px;height:12px;overflow:hidden}.afd-charge-track span{background:linear-gradient(90deg,#2571ff,#46eaff 58%,#d3fbff);box-shadow:0 0 18px #4de8ff;display:block;height:100%;transition:width .2s}.afd-charge small{color:#526b82;font-size:9px}.afd-ultimate{background:rgba(79,111,145,.11);border:1px solid rgba(112,165,202,.2);border-radius:9px;color:#60788f;display:grid;min-height:52px}.afd-ultimate-ready{background:linear-gradient(135deg,#7cf4ff,#a283ff);border:0;box-shadow:0 0 24px rgba(103,225,255,.5);color:#06101e;cursor:pointer}
+      .afd-command-bar{align-items:center;background:linear-gradient(180deg,#0c192c,#081321);border-top:1px solid rgba(112,165,202,.16);display:grid;gap:14px;grid-template-columns:122px minmax(170px,1fr) 300px;min-height:94px;padding:0 14px}.afd-move-buttons{display:flex;gap:7px}.afd-move{background:rgba(130,184,224,.08);border:1px solid rgba(130,184,224,.22);border-radius:7px;color:#e9f8ff;cursor:pointer;display:grid;height:48px;width:52px}.afd-move b{font-size:12px}.afd-move small{color:#6f879a;font-size:8px}.afd-charge{display:grid;gap:6px}.afd-charge-title{color:#83a0b7;display:flex;font-size:9px;justify-content:space-between}.afd-charge-track{background:#030a15;border:1px solid rgba(112,165,202,.18);border-radius:4px;height:12px;overflow:hidden}.afd-charge-track span{background:linear-gradient(90deg,#2571ff,#46eaff 58%,#d3fbff);box-shadow:0 0 18px #4de8ff;display:block;height:100%}.afd-charge small{color:#526b82;font-size:9px}.afd-tactical-buttons{display:grid;gap:6px;grid-template-columns:1fr 1fr 1.15fr}.afd-tactical,.afd-ultimate{background:rgba(79,111,145,.11);border:1px solid rgba(112,165,202,.2);border-radius:9px;color:#60788f;display:grid;min-height:58px;padding:5px 7px}.afd-tactical small,.afd-ultimate small{font-size:8px}.afd-tactical b,.afd-ultimate b{font-size:10px}.afd-tactical span{font-size:7px}.afd-tactical-ready{background:rgba(64,186,219,.13);border-color:rgba(92,226,255,.46);color:#b9f7ff;cursor:pointer}.afd-tactical-active{box-shadow:0 0 18px rgba(78,238,255,.48);color:#fff}.afd-ultimate-ready{background:linear-gradient(135deg,#7cf4ff,#a283ff);border:0;box-shadow:0 0 24px rgba(103,225,255,.5);color:#06101e;cursor:pointer}
       .afd-power-chain{align-items:center;background:linear-gradient(135deg,rgba(13,29,50,.94),rgba(7,18,33,.94));border:1px solid rgba(102,160,202,.18);border-radius:14px;display:flex;justify-content:space-between;min-height:76px;padding:0 18px}.afd-power-copy{align-items:center;display:flex;gap:12px;max-width:58%}.afd-power-copy>span{align-items:center;background:rgba(77,232,255,.1);border:1px solid rgba(77,232,255,.35);border-radius:50%;color:#72edff;display:flex;font-size:9px;font-weight:900;height:34px;justify-content:center;width:34px}.afd-power-copy div{display:grid;gap:3px}.afd-power-copy small{color:#6d879d}.afd-flow{align-items:center;display:flex;gap:12px}.afd-flow>div{display:grid;text-align:center}.afd-flow b{color:#70e9fa}.afd-flow small{color:#61798e;font-size:8px}.afd-flow i{color:#405a71}
       .afd-sidebar{display:grid;gap:12px;grid-auto-rows:max-content}.afd-card{background:linear-gradient(150deg,rgba(15,32,54,.94),rgba(6,16,30,.94));border:1px solid rgba(102,160,202,.18);border-radius:14px;padding:15px}.afd-card-title{align-items:center;display:flex;justify-content:space-between;margin-bottom:12px}.afd-card-title small{color:#547089;font-size:8px;font-weight:900;letter-spacing:1.7px}.afd-card-title h2{font-size:15px;margin:3px 0 0}.afd-card-title>span{border:1px solid rgba(88,242,194,.25);border-radius:99px;color:#58f2c2;font-size:8px;font-weight:900;padding:4px 7px}
       .afd-session{align-items:center;border-top:1px solid rgba(109,158,195,.11);display:grid;gap:9px;grid-template-columns:32px 1fr auto;min-height:49px}.afd-session>span{align-items:center;background:rgba(77,232,255,.08);border:1px solid rgba(77,232,255,.22);border-radius:6px;color:#65e8fb;display:flex;font-size:9px;font-weight:900;height:26px;justify-content:center;width:26px}.afd-session div{display:grid}.afd-session small{color:#60798f;font-size:8px}.afd-empty-fleet,.afd-empty-rank{align-items:center;color:#7290a8;display:flex;flex-direction:column;padding:18px 8px 10px;text-align:center}.afd-empty-fleet p{font-size:10px;margin:7px 0}.afd-reactor{border:1px solid rgba(77,232,255,.35);border-radius:50%;box-shadow:inset 0 0 18px rgba(77,232,255,.14),0 0 18px rgba(77,232,255,.1);height:48px;margin-bottom:11px;width:48px}.afd-more{color:#607b91;font-size:9px;text-align:center}
