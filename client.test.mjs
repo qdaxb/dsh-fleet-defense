@@ -3,6 +3,18 @@ import { readFile } from "node:fs/promises";
 import test from "node:test";
 
 const client = await readFile(new URL("./client.js", import.meta.url), "utf8");
+const dodgeRoute = await readFile(
+  new URL("./dodge/route.js", import.meta.url),
+  "utf8",
+);
+const hubRoute = await readFile(
+  new URL("./hub/route.js", import.meta.url),
+  "utf8",
+);
+const hubStyles = await readFile(
+  new URL("./hub/styles.css", import.meta.url),
+  "utf8",
+);
 
 test("balances survival around a four-session fleet without a hard gate", () => {
   assert.match(client, /const RECOMMENDED_PARALLEL_UNITS = 4/);
@@ -14,11 +26,17 @@ test("balances survival around a four-session fleet without a hard gate", () => 
 });
 
 test("enemy swarms actually close in with visible motion", () => {
-  assert.match(client, /Math\.random\(\) < Math\.min\(0\.62, next\.elapsed \/ 260\)/);
+  assert.match(
+    client,
+    /Math\.random\(\) < Math\.min\(0\.62, next\.elapsed \/ 260\)/,
+  );
   assert.match(client, /\? 11\.5 \+ next\.elapsed \/ 55/);
   assert.match(client, /\? 7 \+ next\.elapsed \/ 90/);
   assert.match(client, /afd-enemy-wrap::before/);
-  assert.match(client, /enemy\.x -= dt \* speed \* \(enemy\.elite \? 1\.1 : 1\) \* empSlow/);
+  assert.match(
+    client,
+    /enemy\.x -= dt \* speed \* \(enemy\.elite \? 1\.1 : 1\) \* empSlow/,
+  );
 });
 
 test("unlocks distinct enemy roles and late-game formations", () => {
@@ -55,7 +73,10 @@ test("projectiles stop and deal damage when they physically reach an enemy", () 
 });
 
 test("turns every active wingman into a visible projectile emitter", () => {
-  assert.match(client, /const wingmanCount = Math\.min\(5, Math\.floor\(active\)\)/);
+  assert.match(
+    client,
+    /const wingmanCount = Math\.min\(5, Math\.floor\(active\)\)/,
+  );
   assert.match(client, /const volleySize = 1 \+ wingmanCount/);
   assert.match(client, /emitter < volleySize/);
   assert.match(client, /WINGMAN_PROJECTILE_OFFSETS\[wingmanIndex\]/);
@@ -126,7 +147,10 @@ test("offers tactical items as alternatives to saving for the ultimate", () => {
 test("makes the nuclear blast deal bounded damage instead of deleting the field", () => {
   assert.match(client, /裂隙核爆/);
   assert.match(client, /110 \+ Math\.min\(90, Math\.sqrt\(tps\) \* 5\)/);
-  assert.match(client, /enemy\.boss[\s\S]*Math\.min\(240, blastDamage \* 0\.75\)/);
+  assert.match(
+    client,
+    /enemy\.boss[\s\S]*Math\.min\(240, blastDamage \* 0\.75\)/,
+  );
   assert.match(client, /enemy\.shield -= absorbed/);
   assert.match(client, /enemy\.hp -= remainingDamage/);
   assert.doesNotMatch(client, /enemy\.shield = 0/);
@@ -135,10 +159,7 @@ test("makes the nuclear blast deal bounded damage instead of deleting the field"
 
 test("keeps the ultimate progress bar synchronized with frame state", () => {
   assert.match(client, /width: `\$\{Math\.min\(100, game\.ultimate\)\}%`/);
-  assert.doesNotMatch(
-    client,
-    /\.afd-charge-track span\{[^}]*transition:width/,
-  );
+  assert.doesNotMatch(client, /\.afd-charge-track span\{[^}]*transition:width/);
 });
 
 test("uses the packaged cinematic battlefield asset", () => {
@@ -167,4 +188,26 @@ test("registers both games behind one game hub sidebar entry", () => {
   assert.match(client, /icon: "gamepad-2"/);
   assert.match(client, /icon: "plane"/);
   assert.match(client, /testId: "ai-token-games-button"/);
+});
+
+test("closes the hangar doors before the hub launches a game", () => {
+  assert.match(hubRoute, /setTimeout\(\(\) => navigateTo\(path\), 1050\)/);
+  assert.match(hubRoute, /ai-token-games-transition/);
+  assert.match(hubRoute, /agh-door agh-door-left/);
+  assert.match(hubRoute, /agh-door agh-door-right/);
+  assert.match(hubStyles, /@keyframes agh-door-left/);
+  assert.match(hubStyles, /@keyframes agh-door-right/);
+});
+
+test("lets escape leave the game hub", () => {
+  assert.match(hubRoute, /event\.key === "Escape"/);
+  assert.match(hubRoute, /returnToWorkbench\(\)/);
+});
+
+test("uses space to start both games", () => {
+  assert.match(dodgeRoute, /event\.key === " "/);
+  assert.match(dodgeRoute, /gameRef\.current\.status === "running"/);
+  assert.match(dodgeRoute, /else restartGame\(\)/);
+  assert.match(dodgeRoute, /h\("b", null, "SPACE"\)/);
+  assert.doesNotMatch(dodgeRoute, /event\.key === "Enter"/);
 });

@@ -101,10 +101,12 @@ export function createBulletDodgeRoute(React) {
         if (event.repeat) return;
         if (event.key === "1") inputRef.current.item = "shield";
         if (event.key === "2") inputRef.current.item = "slow";
-        if (event.key === "3" || event.key === " ")
-          inputRef.current.item = "pulse";
-        if (event.key === "Enter" && gameRef.current.status !== "running")
-          restartGame();
+        if (event.key === "3") inputRef.current.item = "pulse";
+        if (event.key === " ") {
+          if (gameRef.current.status === "running")
+            inputRef.current.item = "pulse";
+          else restartGame();
+        }
         if (event.key === "Escape") returnToWorkbench();
       };
       const onKeyUp = (event) => setDirection(event, false);
@@ -442,7 +444,7 @@ export function createBulletDodgeRoute(React) {
             onClick: onStart,
           },
           ended ? "再次起飞" : "开始飞行",
-          h("b", null, "ENTER"),
+          h("b", null, "SPACE"),
         ),
         h(
           "p",

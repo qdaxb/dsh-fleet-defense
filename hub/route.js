@@ -2,13 +2,15 @@ const STYLE_PATH = "/ai-fleet-defense/hub/styles.css";
 const STATE_PATH = "/ai-fleet-defense/v1/state";
 
 export function createGameHubRoute(React) {
-  const { createElement: h, useEffect, useState } = React;
+  const { createElement: h, useEffect, useRef, useState } = React;
 
   function GameHubRoute() {
     const [telemetry, setTelemetry] = useState({
       activeSessions: 0,
       tokensPerSecond: 0,
     });
+    const [launching, setLaunching] = useState(null);
+    const launchTimerRef = useRef(null);
 
     useEffect(() => {
       let active = true;
@@ -27,6 +29,27 @@ export function createGameHubRoute(React) {
         clearInterval(timer);
       };
     }, []);
+
+    useEffect(() => {
+      const onKeyDown = (event) => {
+        if (event.key === "Escape") returnToWorkbench();
+      };
+      window.addEventListener("keydown", onKeyDown);
+      return () => window.removeEventListener("keydown", onKeyDown);
+    }, []);
+
+    useEffect(
+      () => () => {
+        if (launchTimerRef.current) clearTimeout(launchTimerRef.current);
+      },
+      [],
+    );
+
+    const launchGame = (path, title) => {
+      if (launching) return;
+      setLaunching({ path, title });
+      launchTimerRef.current = setTimeout(() => navigateTo(path), 1050);
+    };
 
     return h(
       "main",
@@ -66,7 +89,7 @@ export function createGameHubRoute(React) {
           tags: ["180 秒", "塔防射击", "并行越多越强"],
           className: "agh-fleet",
           testId: "ai-token-games-fleet",
-          onClick: () => navigateTo("/ai-fleet-defense"),
+          onClick: () => launchGame("/ai-fleet-defense", "正在接入零号防线"),
           action: "进入零号防线",
         }),
         gameCard(h, {
@@ -77,7 +100,7 @@ export function createGameHubRoute(React) {
           tags: ["60 秒", "弹幕躲避", "Token 加速道具"],
           className: "agh-dodge",
           testId: "ai-token-games-dodge",
-          onClick: () => navigateTo("/ai-bullet-dodge"),
+          onClick: () => launchGame("/ai-bullet-dodge", "正在进入飞行训练空域"),
           action: "开始飞行训练",
         }),
       ),
@@ -91,6 +114,24 @@ export function createGameHubRoute(React) {
           "← 返回工作台",
         ),
       ),
+      launching
+        ? h(
+            "div",
+            {
+              className: "agh-transition",
+              "data-testid": "ai-token-games-transition",
+            },
+            h("div", { className: "agh-door agh-door-left" }),
+            h("div", { className: "agh-door agh-door-right" }),
+            h(
+              "div",
+              { className: "agh-transition-status" },
+              h("i", null),
+              h("b", null, launching.title),
+              h("small", null, "舱门闭合 // LINK ESTABLISHED"),
+            ),
+          )
+        : null,
     );
   }
 
