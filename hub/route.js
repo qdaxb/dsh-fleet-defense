@@ -30,14 +30,6 @@ export function createGameHubRoute(React) {
       };
     }, []);
 
-    useEffect(() => {
-      const onKeyDown = (event) => {
-        if (event.key === "Escape") returnToWorkbench();
-      };
-      window.addEventListener("keydown", onKeyDown);
-      return () => window.removeEventListener("keydown", onKeyDown);
-    }, []);
-
     useEffect(
       () => () => {
         if (launchTimerRef.current) clearTimeout(launchTimerRef.current);
@@ -50,6 +42,22 @@ export function createGameHubRoute(React) {
       setLaunching({ path, title });
       launchTimerRef.current = setTimeout(() => navigateTo(path), 1050);
     };
+
+    useEffect(() => {
+      const onKeyDown = (event) => {
+        if (event.key === "Escape") {
+          returnToWorkbench();
+          return;
+        }
+        if (launching) return;
+        if (event.key === "1")
+          launchGame("/ai-fleet-defense", "正在接入零号防线");
+        if (event.key === "2")
+          launchGame("/ai-bullet-dodge", "正在进入飞行训练空域");
+      };
+      window.addEventListener("keydown", onKeyDown);
+      return () => window.removeEventListener("keydown", onKeyDown);
+    }, [launching]);
 
     return h(
       "main",
@@ -89,6 +97,7 @@ export function createGameHubRoute(React) {
           tags: ["180 秒", "塔防射击", "并行越多越强"],
           className: "agh-fleet",
           testId: "ai-token-games-fleet",
+          shortcut: "1",
           onClick: () => launchGame("/ai-fleet-defense", "正在接入零号防线"),
           action: "进入零号防线",
         }),
@@ -100,6 +109,7 @@ export function createGameHubRoute(React) {
           tags: ["60 秒", "弹幕躲避", "Token 加速道具"],
           className: "agh-dodge",
           testId: "ai-token-games-dodge",
+          shortcut: "2",
           onClick: () => launchGame("/ai-bullet-dodge", "正在进入飞行训练空域"),
           action: "开始飞行训练",
         }),
@@ -107,7 +117,7 @@ export function createGameHubRoute(React) {
       h(
         "footer",
         { className: "agh-footer" },
-        h("span", null, "选择一个游戏开始"),
+        h("span", null, "按 1 / 2，或点击游戏开始"),
         h(
           "button",
           { type: "button", onClick: returnToWorkbench },
@@ -154,7 +164,12 @@ function gameCard(h, options) {
       "div",
       { className: "agh-card-copy" },
       h("small", null, options.eyebrow),
-      h("h2", null, options.title),
+      h(
+        "div",
+        { className: "agh-card-title" },
+        h("h2", null, options.title),
+        h("kbd", null, options.shortcut),
+      ),
       h("p", null, options.description),
       h(
         "div",

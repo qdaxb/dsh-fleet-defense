@@ -225,9 +225,38 @@
   color: #ffd866;
 }
 
-.agh-card h2 {
+.agh-card-title {
+  align-items: center;
+  display: flex;
+  gap: 14px;
+  justify-content: space-between;
+}
+
+.agh-card-title h2 {
   font-size: 25px;
   margin: 8px 0 10px;
+}
+
+.agh-card-title kbd {
+  align-items: center;
+  background: rgba(103, 223, 243, 0.1);
+  border: 1px solid rgba(103, 223, 243, 0.36);
+  border-bottom-width: 3px;
+  border-radius: 8px;
+  color: #9ef1ff;
+  display: flex;
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 900;
+  height: 34px;
+  justify-content: center;
+  width: 34px;
+}
+
+.agh-dodge .agh-card-title kbd {
+  background: rgba(255, 216, 102, 0.1);
+  border-color: rgba(255, 216, 102, 0.42);
+  color: #ffe69b;
 }
 
 .agh-card p {

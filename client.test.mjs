@@ -204,6 +204,22 @@ test("lets escape leave the game hub", () => {
   assert.match(hubRoute, /returnToWorkbench\(\)/);
 });
 
+test("lets number keys select games from the hub", () => {
+  assert.match(hubRoute, /event\.key === "1"/);
+  assert.match(
+    hubRoute,
+    /launchGame\("\/ai-fleet-defense", "正在接入零号防线"\)/,
+  );
+  assert.match(hubRoute, /event\.key === "2"/);
+  assert.match(
+    hubRoute,
+    /launchGame\("\/ai-bullet-dodge", "正在进入飞行训练空域"\)/,
+  );
+  assert.match(hubRoute, /shortcut: "1"/);
+  assert.match(hubRoute, /shortcut: "2"/);
+  assert.match(hubRoute, /h\("kbd", null, options\.shortcut\)/);
+});
+
 test("uses space to start both games", () => {
   assert.match(dodgeRoute, /event\.key === " "/);
   assert.match(dodgeRoute, /gameRef\.current\.status === "running"/);
