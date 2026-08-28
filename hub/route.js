@@ -103,10 +103,10 @@ export function createGameHubRoute(React) {
         }),
         gameCard(h, {
           eyebrow: "BULLET DODGE",
-          title: "是王牌就坚持 60 秒",
+          title: "是王牌就坚持下去",
           description:
-            "驾驶纸翼穿过逐渐加密的弹幕。Token 不降低难度，只会加快护盾、减速与清屏道具充能。",
-          tags: ["60 秒", "弹幕躲避", "Token 加速道具"],
+            "驾驶纸翼穿过不断增强的无尽弹幕，看看你究竟能坚持多久。Token 不降低难度，只会加快护盾、减速与清屏道具充能。",
+          tags: ["无尽生存", "弹幕躲避", "Token 加速道具"],
           className: "agh-dodge",
           testId: "ai-token-games-dodge",
           shortcut: "2",

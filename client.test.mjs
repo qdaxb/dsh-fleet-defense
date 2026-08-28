@@ -227,3 +227,9 @@ test("uses space to start both games", () => {
   assert.match(dodgeRoute, /h\("b", null, "SPACE"\)/);
   assert.doesNotMatch(dodgeRoute, /event\.key === "Enter"/);
 });
+
+test("keeps bullet dodge running until lives are exhausted", () => {
+  assert.doesNotMatch(dodgeRoute, /DODGE_GAME_SECONDS/);
+  assert.match(dodgeRoute, /h\("h1", null, "是王牌就坚持下去"\)/);
+  assert.match(dodgeRoute, /hud\("MODE", "ENDLESS"\)/);
+});
