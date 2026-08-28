@@ -10,6 +10,36 @@
   }
 }
 
+@keyframes agh-door-left {
+  from {
+    transform: translateX(-100%);
+  }
+  to {
+    transform: translateX(0);
+  }
+}
+
+@keyframes agh-door-right {
+  from {
+    transform: translateX(100%);
+  }
+  to {
+    transform: translateX(0);
+  }
+}
+
+@keyframes agh-transition-status {
+  0%,
+  58% {
+    opacity: 0;
+    transform: translate(-50%, -46%) scale(0.92);
+  }
+  100% {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1);
+  }
+}
+
 .agh-page {
   background:
     radial-gradient(
@@ -262,6 +292,92 @@
   cursor: pointer;
   font-size: 10px;
   padding: 8px 11px;
+}
+
+.agh-transition {
+  inset: 0;
+  overflow: hidden;
+  position: fixed;
+  z-index: 100;
+}
+
+.agh-door {
+  animation-duration: 0.78s;
+  animation-fill-mode: forwards;
+  animation-timing-function: cubic-bezier(0.7, 0, 0.3, 1);
+  background:
+    linear-gradient(
+      90deg,
+      rgba(255, 255, 255, 0.025),
+      transparent 16%,
+      rgba(101, 234, 255, 0.08) 48%,
+      transparent 52%
+    ),
+    repeating-linear-gradient(
+      180deg,
+      #0b182b 0,
+      #0b182b 56px,
+      #13243b 57px,
+      #091524 59px
+    );
+  bottom: 0;
+  position: absolute;
+  top: 0;
+  width: 50.1%;
+}
+
+.agh-door::before {
+  border: 1px solid rgba(110, 196, 229, 0.2);
+  content: "";
+  inset: 18px;
+  position: absolute;
+}
+
+.agh-door-left {
+  animation-name: agh-door-left;
+  border-right: 3px solid #66e6f7;
+  box-shadow: 14px 0 36px rgba(0, 0, 0, 0.55);
+  left: 0;
+}
+
+.agh-door-right {
+  animation-name: agh-door-right;
+  border-left: 3px solid #66e6f7;
+  box-shadow: -14px 0 36px rgba(0, 0, 0, 0.55);
+  right: 0;
+}
+
+.agh-transition-status {
+  animation: agh-transition-status 0.95s ease-out forwards;
+  display: grid;
+  gap: 6px;
+  left: 50%;
+  position: absolute;
+  text-align: center;
+  top: 50%;
+  z-index: 2;
+}
+
+.agh-transition-status i {
+  background: #66e6f7;
+  border-radius: 50%;
+  box-shadow: 0 0 18px #66e6f7;
+  height: 9px;
+  justify-self: center;
+  width: 9px;
+}
+
+.agh-transition-status b {
+  color: #eafcff;
+  font-size: 17px;
+  white-space: nowrap;
+}
+
+.agh-transition-status small {
+  color: #6e94aa;
+  font-size: 8px;
+  letter-spacing: 2px;
+  white-space: nowrap;
 }
 
 @media (max-width: 900px) {
