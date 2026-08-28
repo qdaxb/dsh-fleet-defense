@@ -1,11 +1,19 @@
-# AI 舰队防线
+# AI Token 游戏场
 
-这是一个独立的标准 DSH dual-face 插件，基于[wework](https://github.com/wecode-ai/Wegent)运行：
+这是一个独立的标准 DSH dual-face 插件，基于[wework](https://github.com/wecode-ai/Wegent)运行，当前包含两个游戏：
+
+- **AI 舰队 · 零号防线**：并行 Session 与 Token 输出共同增强舰队火力。
+- **是王牌就坚持 60 秒**：操控飞机躲避弹幕，Token 输出加快道具充能。
 
 - Host 半边监听官方 `session/event`，通过短时滑动窗口统计模型输出分片，
   并使用每个 Step 的 `usage` 作为无流式分片时的 token/s 数据。
 - Client 半边通过 `wework.route` 与 `wework.sidebar.navigation` 注册 Wework 游戏页面。
 - 游戏结束后，Client 使用 Wegent 的通用 DSH 插件存储 API 保存共享最佳分数并读取 Backend 范围内排行榜。
+
+左侧栏只注册一个“AI Token 游戏”入口，进入游戏大厅后再选择具体游戏。
+大厅与第二个游戏都按独立模块加载；飞机玩法拆分在 `dodge/route.js`、
+`dodge/engine.js`、`dodge/storage.js` 和 `dodge/styles.css` 中，避免两套
+玩法继续堆叠在同一个客户端文件里。
 
 ## 游戏规则
 
@@ -36,6 +44,17 @@ AI 僚机当前贡献的输出速度。
 
 页面右上角始终提供“返回工作台”按钮，游戏进行中也可随时退出；按
 `Esc` 同样返回 Wework 工作台。
+
+## 飞机躲子弹规则
+
+- 使用鼠标、WASD 或方向键移动飞机，在逐渐加密的弹幕中坚持 60 秒。
+- 飞机有 3 点生命，受击后会获得短暂无敌时间；贴近子弹但未被命中会触发
+  擦弹并获得额外分数。
+- 道具能量会以基础速度自动恢复，所有执行中 Session 的 Token 输出会进一步
+  加快充能，但不会降低弹幕难度，也不会直接增加分数。
+- 按 `1` 消耗 45 能量开启相位护盾，按 `2` 消耗 65 能量让弹幕减速，
+  按 `3` 或空格消耗 100 能量释放清屏脉冲。
+- 两个游戏使用独立排行榜，并可随时返回游戏大厅切换玩法。
 
 ## 本地校验
 

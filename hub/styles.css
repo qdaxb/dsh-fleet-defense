@@ -1,0 +1,277 @@
+@keyframes agh-live {
+  0%,
+  100% {
+    opacity: 0.45;
+    transform: scale(0.8);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.15);
+  }
+}
+
+.agh-page {
+  background:
+    radial-gradient(
+      circle at 16% 8%,
+      rgba(60, 193, 255, 0.17),
+      transparent 30%
+    ),
+    radial-gradient(
+      circle at 86% 72%,
+      rgba(255, 71, 126, 0.15),
+      transparent 34%
+    ),
+    #050b17;
+  box-sizing: border-box;
+  color: #f3f9ff;
+  font-family:
+    Inter, "SF Pro Display", "PingFang SC", "Microsoft YaHei", sans-serif;
+  min-height: 100%;
+  padding: 46px clamp(24px, 5vw, 84px);
+}
+
+.agh-header {
+  align-items: end;
+  display: flex;
+  justify-content: space-between;
+  margin: 0 auto 34px;
+  max-width: 1440px;
+}
+
+.agh-header small {
+  color: #67def3;
+  font-size: 10px;
+  font-weight: 900;
+  letter-spacing: 3px;
+}
+
+.agh-header h1 {
+  font-size: clamp(32px, 4vw, 54px);
+  letter-spacing: -1.8px;
+  margin: 8px 0 9px;
+}
+
+.agh-header p {
+  color: #8299af;
+  font-size: 13px;
+  margin: 0;
+}
+
+.agh-live {
+  align-items: center;
+  background: rgba(18, 36, 60, 0.75);
+  border: 1px solid rgba(111, 182, 224, 0.2);
+  border-radius: 999px;
+  color: #9db7cd;
+  display: flex;
+  font-size: 10px;
+  gap: 9px;
+  padding: 9px 13px;
+}
+
+.agh-live i {
+  animation: agh-live 1.5s infinite;
+  background: #65f1c0;
+  border-radius: 50%;
+  box-shadow: 0 0 10px #65f1c0;
+  height: 7px;
+  width: 7px;
+}
+
+.agh-games {
+  display: grid;
+  gap: 22px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  margin: 0 auto;
+  max-width: 1440px;
+}
+
+.agh-card {
+  background: linear-gradient(
+    155deg,
+    rgba(18, 37, 63, 0.96),
+    rgba(6, 16, 31, 0.98)
+  );
+  border: 1px solid rgba(115, 175, 215, 0.22);
+  border-radius: 24px;
+  box-shadow: 0 28px 75px rgba(0, 0, 0, 0.3);
+  min-height: 560px;
+  overflow: hidden;
+}
+
+.agh-art {
+  height: 280px;
+  overflow: hidden;
+  position: relative;
+}
+
+.agh-fleet .agh-art {
+  background: radial-gradient(circle at 46% 50%, #22577e, #071426 68%);
+}
+
+.agh-dodge .agh-art {
+  background: linear-gradient(180deg, #2b5c86, #d48f82);
+}
+
+.agh-art-grid {
+  background-image:
+    linear-gradient(rgba(255, 255, 255, 0.045) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.045) 1px, transparent 1px);
+  background-size: 42px 42px;
+  inset: 0;
+  position: absolute;
+  transform: perspective(300px) rotateX(55deg) scale(1.4);
+}
+
+.agh-art-core {
+  background: #effcff;
+  box-shadow:
+    0 0 18px #65eaff,
+    0 0 54px rgba(101, 234, 255, 0.75);
+  clip-path: polygon(
+    50% 0,
+    65% 42%,
+    100% 68%,
+    62% 62%,
+    50% 100%,
+    38% 62%,
+    0 68%,
+    35% 42%
+  );
+  height: 116px;
+  left: 50%;
+  position: absolute;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  width: 116px;
+}
+
+.agh-dodge .agh-art-core {
+  background: #fff;
+  box-shadow: 0 0 20px rgba(255, 255, 255, 0.55);
+  height: 128px;
+  transform: translate(-50%, -50%) rotate(10deg);
+}
+
+.agh-art-wing {
+  background: linear-gradient(90deg, transparent, #ff648f);
+  border-radius: 99px;
+  box-shadow: 0 0 12px #ff477e;
+  height: 5px;
+  position: absolute;
+  width: 105px;
+}
+
+.agh-art-wing-one {
+  left: 13%;
+  top: 33%;
+  transform: rotate(14deg);
+}
+
+.agh-art-wing-two {
+  right: 12%;
+  top: 66%;
+  transform: rotate(-18deg);
+}
+
+.agh-fleet .agh-art-wing {
+  background: linear-gradient(90deg, transparent, #70eaff);
+  box-shadow: 0 0 12px #4de8ff;
+}
+
+.agh-card-copy {
+  padding: 28px 30px 30px;
+}
+
+.agh-card-copy > small {
+  color: #67dff3;
+  font-size: 9px;
+  font-weight: 900;
+  letter-spacing: 2.3px;
+}
+
+.agh-dodge .agh-card-copy > small {
+  color: #ffd866;
+}
+
+.agh-card h2 {
+  font-size: 25px;
+  margin: 8px 0 10px;
+}
+
+.agh-card p {
+  color: #8199ae;
+  font-size: 11px;
+  line-height: 1.75;
+  margin: 0;
+  min-height: 58px;
+}
+
+.agh-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+  margin: 18px 0;
+}
+
+.agh-tags span {
+  background: rgba(94, 160, 203, 0.08);
+  border: 1px solid rgba(94, 160, 203, 0.18);
+  border-radius: 999px;
+  color: #8fa9be;
+  font-size: 8px;
+  padding: 5px 8px;
+}
+
+.agh-card-copy > button {
+  align-items: center;
+  background: linear-gradient(135deg, #70eaff, #6d8cff);
+  border: 0;
+  border-radius: 10px;
+  color: #06101e;
+  cursor: pointer;
+  display: flex;
+  font-size: 12px;
+  font-weight: 900;
+  justify-content: space-between;
+  padding: 13px 15px;
+  width: 100%;
+}
+
+.agh-dodge .agh-card-copy > button {
+  background: linear-gradient(135deg, #ffd866, #ff477e);
+  color: #20162d;
+}
+
+.agh-footer {
+  align-items: center;
+  color: #5e758b;
+  display: flex;
+  font-size: 9px;
+  justify-content: space-between;
+  margin: 22px auto 0;
+  max-width: 1440px;
+}
+
+.agh-footer button {
+  background: transparent;
+  border: 1px solid rgba(113, 167, 206, 0.2);
+  border-radius: 8px;
+  color: #8ca7bd;
+  cursor: pointer;
+  font-size: 10px;
+  padding: 8px 11px;
+}
+
+@media (max-width: 900px) {
+  .agh-games {
+    grid-template-columns: 1fr;
+  }
+
+  .agh-header {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 18px;
+  }
+}

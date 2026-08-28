@@ -10,6 +10,50 @@ const BACKGROUND_PATH = "/ai-fleet-defense/assets/neural-rift-battlefield.png";
 const BACKGROUND_FILE = fileURLToPath(
   new URL("./assets/neural-rift-battlefield.png", import.meta.url),
 );
+const CLIENT_ASSETS = new Map([
+  [
+    "/ai-fleet-defense/hub/route.js",
+    {
+      file: fileURLToPath(new URL("./hub/route.js", import.meta.url)),
+      contentType: "text/javascript; charset=utf-8",
+    },
+  ],
+  [
+    "/ai-fleet-defense/hub/styles.css",
+    {
+      file: fileURLToPath(new URL("./hub/styles.css", import.meta.url)),
+      contentType: "text/css; charset=utf-8",
+    },
+  ],
+  [
+    "/ai-fleet-defense/dodge/route.js",
+    {
+      file: fileURLToPath(new URL("./dodge/route.js", import.meta.url)),
+      contentType: "text/javascript; charset=utf-8",
+    },
+  ],
+  [
+    "/ai-fleet-defense/dodge/engine.js",
+    {
+      file: fileURLToPath(new URL("./dodge/engine.js", import.meta.url)),
+      contentType: "text/javascript; charset=utf-8",
+    },
+  ],
+  [
+    "/ai-fleet-defense/dodge/storage.js",
+    {
+      file: fileURLToPath(new URL("./dodge/storage.js", import.meta.url)),
+      contentType: "text/javascript; charset=utf-8",
+    },
+  ],
+  [
+    "/ai-fleet-defense/dodge/styles.css",
+    {
+      file: fileURLToPath(new URL("./dodge/styles.css", import.meta.url)),
+      contentType: "text/css; charset=utf-8",
+    },
+  ],
+]);
 
 export function apply(ctx) {
   const telemetry = new FleetTelemetry();
@@ -32,6 +76,17 @@ export function apply(ctx) {
       }),
     `ai-fleet-defense: ${BACKGROUND_PATH}`,
   );
+  for (const [path, asset] of CLIENT_ASSETS) {
+    ctx.effect(
+      () =>
+        ctx.webServer.register({
+          kind: "exact",
+          path,
+          handler: (req, res) => serveStaticAsset(req, res, asset),
+        }),
+      `ai-fleet-defense: ${path}`,
+    );
+  }
 }
 
 function serveState(req, res, telemetry) {
@@ -61,6 +116,25 @@ function serveBackground(req, res) {
   res.writeHead(200, {
     "content-type": "image/png",
     "cache-control": "public, max-age=3600",
+    "content-length": body.byteLength,
+  });
+  res.end(req.method === "HEAD" ? undefined : body);
+}
+
+function serveStaticAsset(req, res, asset) {
+  if (!trustedBrowserRequest(req)) {
+    sendJson(res, 403, { error: "Forbidden" });
+    return;
+  }
+  if (req.method !== "GET" && req.method !== "HEAD") {
+    res.writeHead(405, { allow: "GET, HEAD" });
+    res.end();
+    return;
+  }
+  const body = readFileSync(asset.file);
+  res.writeHead(200, {
+    "content-type": asset.contentType,
+    "cache-control": "no-cache",
     "content-length": body.byteLength,
   });
   res.end(req.method === "HEAD" ? undefined : body);
