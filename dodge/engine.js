@@ -1,5 +1,3 @@
-export const DODGE_GAME_SECONDS = 60;
-
 const PLAYER_SPEED = 48;
 const HIT_RADIUS = 2.25;
 const GRAZE_RADIUS = 5.4;
@@ -35,7 +33,7 @@ export function advanceDodgeGame(game, input, telemetry, dt) {
     effects: game.effects
       .map((effect) => ({ ...effect, age: effect.age + dt }))
       .filter((effect) => effect.age < 0.8),
-    elapsed: Math.min(DODGE_GAME_SECONDS, game.elapsed + dt),
+    elapsed: game.elapsed + dt,
     spawnCooldown: game.spawnCooldown - dt,
     shieldTimer: Math.max(0, game.shieldTimer - dt),
     slowTimer: Math.max(0, game.slowTimer - dt),
@@ -53,17 +51,9 @@ export function advanceDodgeGame(game, input, telemetry, dt) {
   moveAndCollide(next, dt);
 
   next.score += dt * (100 + Math.min(180, next.elapsed * 3));
-  if (next.lives <= 0 || next.elapsed >= DODGE_GAME_SECONDS) {
+  if (next.lives <= 0) {
     next.status = "ended";
-    next.score = Math.max(
-      0,
-      Math.round(
-        next.score +
-          next.grazes * 75 +
-          next.lives * 1200 +
-          (next.elapsed >= DODGE_GAME_SECONDS ? 5000 : 0),
-      ),
-    );
+    next.score = Math.max(0, Math.round(next.score + next.grazes * 75));
   }
   return next;
 }

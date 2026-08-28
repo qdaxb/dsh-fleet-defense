@@ -15,6 +15,8 @@ export async function loadDodgeLeaderboard() {
   return rows
     .sort(
       (left, right) =>
+        Number(right.value?.survivedSeconds ?? 0) -
+          Number(left.value?.survivedSeconds ?? 0) ||
         Number(right.value?.score ?? 0) - Number(left.value?.score ?? 0),
     )
     .slice(0, 100);
@@ -30,8 +32,10 @@ export async function submitDodgeScore(game) {
     },
   );
   const current = await currentResponse.json();
-  const bestScore = Number(current.tables?.dodge_scores?.best?.score ?? 0);
-  if (bestScore >= game.score) return;
+  const bestSeconds = Number(
+    current.tables?.dodge_scores?.best?.survivedSeconds ?? 0,
+  );
+  if (bestSeconds >= game.elapsed) return;
   await storageFetch(
     `/units/${UNIT}/tables/dodge_scores/records/best?package=${encodeURIComponent(PACKAGE_NAME)}`,
     {

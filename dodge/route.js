@@ -1,8 +1,4 @@
-import {
-  DODGE_GAME_SECONDS,
-  advanceDodgeGame,
-  createDodgeGame,
-} from "./engine.js";
+import { advanceDodgeGame, createDodgeGame } from "./engine.js";
 import { loadDodgeLeaderboard, submitDodgeScore } from "./storage.js";
 
 const STATE_PATH = "/ai-fleet-defense/v1/state";
@@ -101,10 +97,12 @@ export function createBulletDodgeRoute(React) {
         if (event.repeat) return;
         if (event.key === "1") inputRef.current.item = "shield";
         if (event.key === "2") inputRef.current.item = "slow";
-        if (event.key === "3" || event.key === " ")
-          inputRef.current.item = "pulse";
-        if (event.key === "Enter" && gameRef.current.status !== "running")
-          restartGame();
+        if (event.key === "3") inputRef.current.item = "pulse";
+        if (event.key === " ") {
+          if (gameRef.current.status === "running")
+            inputRef.current.item = "pulse";
+          else restartGame();
+        }
         if (event.key === "Escape") returnToWorkbench();
       };
       const onKeyUp = (event) => setDirection(event, false);
@@ -157,10 +155,10 @@ export function createBulletDodgeRoute(React) {
     };
     const rank = useMemo(() => {
       const index = leaderboard.findIndex(
-        (row) => Number(row.value?.score) <= game.score,
+        (row) => Number(row.value?.survivedSeconds) <= game.elapsed,
       );
       return index < 0 ? leaderboard.length + 1 : index + 1;
-    }, [game.score, leaderboard]);
+    }, [game.elapsed, leaderboard]);
     const chargeRate = Number(telemetry.ultimateChargePerSecond ?? 1.6);
 
     return h(
@@ -178,8 +176,8 @@ export function createBulletDodgeRoute(React) {
             "div",
             null,
             h("div", { className: "abd-eyebrow" }, "TOKEN AFTERBURNER // LIVE"),
-            h("h1", null, "是王牌就坚持 60 秒"),
-            h("p", null, "驾驶纸翼穿过弹幕；Token 输出只加速道具充能"),
+            h("h1", null, "是王牌就坚持下去"),
+            h("p", null, "驾驶纸翼穿过无尽弹幕；Token 输出只加速道具充能"),
           ),
         ),
         h(
@@ -233,10 +231,7 @@ export function createBulletDodgeRoute(React) {
             "div",
             { className: "abd-hud" },
             hud("SURVIVED", `${game.elapsed.toFixed(1)}s`),
-            hud(
-              "TIME LEFT",
-              `${Math.ceil(Math.max(0, DODGE_GAME_SECONDS - game.elapsed))}s`,
-            ),
+            hud("MODE", "ENDLESS"),
             hud("LIVES", "♥".repeat(Math.max(0, game.lives)), game.lives <= 1),
             hud("GRAZE", formatNumber(game.grazes)),
             hud("SCORE", formatNumber(game.score)),
@@ -385,7 +380,7 @@ export function createBulletDodgeRoute(React) {
           h(
             "section",
             { className: "afd-card afd-protocol" },
-            sideTitle("FLIGHT MANUAL", "飞行手册", "60 SEC"),
+            sideTitle("FLIGHT MANUAL", "飞行手册", "ENDLESS"),
             protocol("01", "移动飞机", "鼠标跟随，或使用 WASD / 方向键"),
             protocol("02", "擦弹得分", "贴近子弹而不被命中，可获得额外分数"),
             protocol("03", "相位护盾", "45 能量，短时间内免疫碰撞"),
@@ -406,15 +401,7 @@ export function createBulletDodgeRoute(React) {
         "div",
         { className: "abd-overlay-card" },
         h("small", null, ended ? "FLIGHT REPORT" : "READY FOR TAKEOFF"),
-        h(
-          "h2",
-          null,
-          ended
-            ? game.elapsed >= DODGE_GAME_SECONDS
-              ? "你就是王牌"
-              : "飞机被弹幕淹没了"
-            : "是王牌就坚持 60 秒",
-        ),
+        h("h2", null, ended ? "飞机被弹幕淹没了" : "是王牌就坚持下去"),
         ended
           ? h(
               "div",
@@ -430,7 +417,7 @@ export function createBulletDodgeRoute(React) {
               "div",
               { className: "abd-rules" },
               h("span", null, "移动", h("b", null, "鼠标 / WASD")),
-              h("span", null, "目标", h("b", null, "活过 60 秒")),
+              h("span", null, "目标", h("b", null, "尽可能活得更久")),
               h("span", null, "Token", h("b", null, "加速道具充能")),
             ),
         h(
@@ -442,7 +429,7 @@ export function createBulletDodgeRoute(React) {
             onClick: onStart,
           },
           ended ? "再次起飞" : "开始飞行",
-          h("b", null, "ENTER"),
+          h("b", null, "SPACE"),
         ),
         h(
           "p",
@@ -526,7 +513,11 @@ export function createBulletDodgeRoute(React) {
         },
         h("b", null, String(index + 1).padStart(2, "0")),
         h("span", null, row.owner_name),
-        h("strong", null, formatNumber(row.value?.score ?? 0)),
+        h(
+          "strong",
+          null,
+          `${Number(row.value?.survivedSeconds ?? 0).toFixed(1)}s`,
+        ),
       ),
     );
   }

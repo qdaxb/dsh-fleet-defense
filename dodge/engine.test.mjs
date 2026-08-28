@@ -1,10 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import {
-  DODGE_GAME_SECONDS,
-  advanceDodgeGame,
-  createDodgeGame,
-} from "./engine.js";
+import { advanceDodgeGame, createDodgeGame } from "./engine.js";
 
 const idleInput = {
   up: false,
@@ -19,18 +15,8 @@ test("token throughput accelerates item charge without changing score rate", () 
   const slow = safeGame();
   const fast = structuredClone(slow);
 
-  const slowNext = advanceDodgeGame(
-    slow,
-    idleInput,
-    telemetry(1.6, 0),
-    1,
-  );
-  const fastNext = advanceDodgeGame(
-    fast,
-    idleInput,
-    telemetry(18, 120),
-    1,
-  );
+  const slowNext = advanceDodgeGame(slow, idleInput, telemetry(1.6, 0), 1);
+  const fastNext = advanceDodgeGame(fast, idleInput, telemetry(18, 120), 1);
 
   assert.equal(slowNext.energy, 1.6);
   assert.equal(fastNext.energy, 18);
@@ -93,16 +79,29 @@ test("shield prevents collision damage", () => {
   assert.equal(next.lives, 3);
 });
 
-test("ends successfully after sixty seconds", () => {
+test("continues running beyond sixty seconds", () => {
   const game = {
     ...safeGame(),
-    elapsed: DODGE_GAME_SECONDS - 0.02,
+    elapsed: 59.98,
   };
   const next = advanceDodgeGame(game, idleInput, telemetry(), 0.05);
 
+  assert.equal(next.status, "running");
+  assert.ok(next.elapsed > 60);
+});
+
+test("ends only when the player runs out of lives", () => {
+  const game = {
+    ...safeGame(),
+    lives: 1,
+    elapsed: 125,
+    bullets: [bulletAt(50, 72)],
+  };
+  const next = advanceDodgeGame(game, idleInput, telemetry(), 0.01);
+
   assert.equal(next.status, "ended");
-  assert.equal(next.elapsed, DODGE_GAME_SECONDS);
-  assert.ok(next.score >= 5000);
+  assert.equal(next.lives, 0);
+  assert.ok(next.elapsed > 125);
 });
 
 function safeGame() {

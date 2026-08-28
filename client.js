@@ -208,8 +208,7 @@ window.__ModuleLoader__.load({
               setGame(createGame(true));
             } else if (current.ultimate >= 100)
               inputRef.current.ultimate = true;
-            else
-              setUltimateDeniedTick((value) => value + 1);
+            else setUltimateDeniedTick((value) => value + 1);
           }
           if (event.key === "1") requestTactical("emp");
           if (event.key === "2") requestTactical("repair");
@@ -291,9 +290,17 @@ window.__ModuleLoader__.load({
             h(
               "div",
               null,
-              h("div", { className: "afd-eyebrow" }, "WEWORK PARALLEL OPS // LIVE"),
+              h(
+                "div",
+                { className: "afd-eyebrow" },
+                "WEWORK PARALLEL OPS // LIVE",
+              ),
               h("h1", null, "AI 舰队 · 零号防线"),
-              h("p", null, "旗舰负责引导火力；至少 4 个并发 AI 才能形成完整防线"),
+              h(
+                "p",
+                null,
+                "旗舰负责引导火力；至少 4 个并发 AI 才能形成完整防线",
+              ),
             ),
           ),
           h(
@@ -355,7 +362,11 @@ window.__ModuleLoader__.load({
                 "div",
                 { className: "afd-hud" },
                 hud("SCORE", formatNumber(game.score)),
-                hud("COMBO", game.combo ? `×${game.combo}` : "—", game.combo >= 5),
+                hud(
+                  "COMBO",
+                  game.combo ? `×${game.combo}` : "—",
+                  game.combo >= 5,
+                ),
                 hud(
                   "CORE SHIELD",
                   `${Math.max(0, Math.round(game.hp))}%${
@@ -485,7 +496,11 @@ window.__ModuleLoader__.load({
                     },
                     h(
                       "div",
-                      { className: enemy.boss ? "afd-boss-label" : "afd-enemy-label" },
+                      {
+                        className: enemy.boss
+                          ? "afd-boss-label"
+                          : "afd-enemy-label",
+                      },
                       enemy.boss
                         ? "NEMESIS // 母体"
                         : `${enemy.elite ? "ELITE // " : ""}${enemyName(enemy.kind)}`,
@@ -540,9 +555,7 @@ window.__ModuleLoader__.load({
                     style: {
                       left: `${burst.x + (burst.xOffset ?? 0)}%`,
                       top: `${
-                        16.667 +
-                        burst.lane * 33.333 +
-                        (burst.yOffset ?? 0)
+                        16.667 + burst.lane * 33.333 + (burst.yOffset ?? 0)
                       }%`,
                     },
                   }),
@@ -677,7 +690,10 @@ window.__ModuleLoader__.load({
                 { className: "afd-flow" },
                 flow(`${telemetry.activeSessions}`, "AI 增援"),
                 h("i", null, "→"),
-                flow(`${formatNumber(telemetry.tokensPerSecond)}`, "Token / 秒"),
+                flow(
+                  `${formatNumber(telemetry.tokensPerSecond)}`,
+                  "Token / 秒",
+                ),
                 h("i", null, "→"),
                 flow(`×${telemetry.synergy}`, "舰队火力"),
               ),
@@ -695,33 +711,37 @@ window.__ModuleLoader__.load({
                 telemetry.activeSessions ? "ONLINE" : "BASE POWER",
               ),
               activeSessions.length
-                ? activeSessions.slice(0, 5).map((session, index) =>
-                    h(
-                      "div",
-                      { className: "afd-session", key: session.sessionId },
-                      h("span", null, String(index + 1).padStart(2, "0")),
+                ? activeSessions
+                    .slice(0, 5)
+                    .map((session, index) =>
                       h(
                         "div",
-                        null,
+                        { className: "afd-session", key: session.sessionId },
+                        h("span", null, String(index + 1).padStart(2, "0")),
                         h(
-                          "b",
+                          "div",
                           null,
-                          `AI 僚机 ${String(index + 1).padStart(2, "0")}`,
+                          h(
+                            "b",
+                            null,
+                            `AI 僚机 ${String(index + 1).padStart(2, "0")}`,
+                          ),
+                          h(
+                            "small",
+                            null,
+                            session.tokensPerSecond > 0
+                              ? "正在输出"
+                              : "正在思考",
+                          ),
                         ),
                         h(
-                          "small",
+                          "strong",
                           null,
-                          session.tokensPerSecond > 0 ? "正在输出" : "正在思考",
+                          formatNumber(session.tokensPerSecond),
+                          h("small", null, " t/s"),
                         ),
                       ),
-                      h(
-                        "strong",
-                        null,
-                        formatNumber(session.tokensPerSecond),
-                        h("small", null, " t/s"),
-                      ),
-                    ),
-                  )
+                    )
                 : h(
                     "div",
                     { className: "afd-empty-fleet" },
@@ -759,16 +779,14 @@ window.__ModuleLoader__.load({
                         "div",
                         {
                           className:
-                            index === 0 ? "afd-rank afd-rank-first" : "afd-rank",
+                            index === 0
+                              ? "afd-rank afd-rank-first"
+                              : "afd-rank",
                           key: `${row.owner_id}:${row.key}`,
                         },
                         h("b", null, String(index + 1).padStart(2, "0")),
                         h("span", null, row.owner_name),
-                        h(
-                          "strong",
-                          null,
-                          formatNumber(row.value?.score ?? 0),
-                        ),
+                        h("strong", null, formatNumber(row.value?.score ?? 0)),
                       ),
                     )
                   : h(
@@ -1113,12 +1131,7 @@ window.__ModuleLoader__.load({
     }
 
     function flow(value, label) {
-      return h(
-        "div",
-        null,
-        h("b", null, value),
-        h("small", null, label),
-      );
+      return h("div", null, h("b", null, value), h("small", null, label));
     }
 
     function sideTitle(kicker, title, status) {
@@ -1215,10 +1228,7 @@ window.__ModuleLoader__.load({
       const active = Math.max(0, Number(telemetry.activeSessions ?? 0));
       const synergy = Math.max(1, Number(telemetry.synergy ?? 1));
 
-      const fleetReadiness = Math.min(
-        1,
-        active / RECOMMENDED_PARALLEL_UNITS,
-      );
+      const fleetReadiness = Math.min(1, active / RECOMMENDED_PARALLEL_UNITS);
       const fireInterval = Math.max(
         0.14,
         0.88 - fleetReadiness * 0.38 - Math.log1p(tps) * 0.045,
@@ -1240,14 +1250,9 @@ window.__ModuleLoader__.load({
               lane: next.playerLane,
               x: emitter === 0 ? 13 : 10 + (wingmanIndex % 2) * 2,
               yOffset:
-                emitter === 0
-                  ? 0
-                  : WINGMAN_PROJECTILE_OFFSETS[wingmanIndex],
+                emitter === 0 ? 0 : WINGMAN_PROJECTILE_OFFSETS[wingmanIndex],
               age: 0,
-              power: Math.min(
-                4,
-                (emitter === 0 ? 1 : 0.65) + tps / 80,
-              ),
+              power: Math.min(4, (emitter === 0 ? 1 : 0.65) + tps / 80),
               damage: volleyDamage / volleySize,
               source: emitter === 0 ? "flagship" : "wingman",
               impactXOffset:
@@ -1274,11 +1279,7 @@ window.__ModuleLoader__.load({
           });
         }
       }
-      if (
-        input.tactical === "repair" &&
-        next.ultimate >= 55 &&
-        next.hp < 100
-      ) {
+      if (input.tactical === "repair" && next.ultimate >= 55 && next.hp < 100) {
         next.ultimate -= 55;
         next.hp = Math.min(100, next.hp + 28);
         next.barrierTimer = Math.max(next.barrierTimer, 8);
@@ -1293,8 +1294,7 @@ window.__ModuleLoader__.load({
 
       if (input.ultimate && next.ultimate >= 100) {
         next.ultimate = 0;
-        const blastDamage =
-          110 + Math.min(90, Math.sqrt(tps) * 5);
+        const blastDamage = 110 + Math.min(90, Math.sqrt(tps) * 5);
         for (const enemy of next.enemies) {
           let remainingDamage = enemy.boss
             ? Math.min(240, blastDamage * 0.75)
@@ -1319,8 +1319,7 @@ window.__ModuleLoader__.load({
         const boss = !next.bossSpawned && next.elapsed >= BOSS_SECONDS;
         next.bossSpawned ||= boss;
         const availableSlots = MAX_ACTIVE_ENEMIES - next.enemies.length;
-        const legacyHeavy =
-          Math.random() < Math.min(0.62, next.elapsed / 260);
+        const legacyHeavy = Math.random() < Math.min(0.62, next.elapsed / 260);
         if (boss && availableSlots > 0) {
           next.enemies.push(createBoss(next));
           if (availableSlots > 1)
@@ -1346,8 +1345,7 @@ window.__ModuleLoader__.load({
               batchSize >= 3 ? index % 3 : Math.floor(Math.random() * 3);
             const elite =
               next.elapsed >= 138 &&
-              Math.random() <
-                Math.min(0.36, 0.1 + (next.elapsed - 138) / 180);
+              Math.random() < Math.min(0.36, 0.1 + (next.elapsed - 138) / 180);
             next.enemies.push(
               createEnemy(next, kind, lane, 95 + index * 3, elite),
             );
@@ -1396,8 +1394,7 @@ window.__ModuleLoader__.load({
             if (
               lane >= 0 &&
               lane <= 2 &&
-              next.enemies.length + deployedDrones.length <
-                MAX_ACTIVE_ENEMIES
+              next.enemies.length + deployedDrones.length < MAX_ACTIVE_ENEMIES
             )
               deployedDrones.push(
                 createEnemy(next, "drone", lane, enemy.x + 4, enemy.elite),
@@ -1447,10 +1444,7 @@ window.__ModuleLoader__.load({
         next.bossDefeated ||= destroyed.some((enemy) => enemy.boss);
         next.score += destroyed.reduce(
           (total, enemy) =>
-            total +
-            (enemy.boss
-              ? 6000
-              : enemyScore(enemy, next.combo)),
+            total + (enemy.boss ? 6000 : enemyScore(enemy, next.combo)),
           0,
         );
       }
@@ -1661,8 +1655,10 @@ window.__ModuleLoader__.load({
     }
 
     function workbenchPath() {
-      const appBase = window.__WEWORK_RUNTIME_CONFIG__?.appBasePath
-        ?.replace(/\/+$/, "");
+      const appBase = window.__WEWORK_RUNTIME_CONFIG__?.appBasePath?.replace(
+        /\/+$/,
+        "",
+      );
       return appBase ? `${appBase}/` : "/";
     }
 
@@ -1765,7 +1761,7 @@ window.__ModuleLoader__.load({
             icon: "plane",
             path: "/ai-bullet-dodge",
             restorePolicy: "session",
-            title: "是王牌就坚持 60 秒",
+            title: "是王牌就坚持下去",
           },
           BulletDodgeRoute,
         ),
