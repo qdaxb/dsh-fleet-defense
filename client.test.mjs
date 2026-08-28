@@ -148,7 +148,23 @@ test("uses the packaged cinematic battlefield asset", () => {
   );
 });
 
-test("uses a dedicated shield icon in the route and sidebar", () => {
-  assert.equal((client.match(/icon: "shield"/g) ?? []).length, 2);
+test("uses a dedicated shield icon for the fleet route", () => {
+  assert.equal((client.match(/icon: "shield"/g) ?? []).length, 1);
   assert.doesNotMatch(client, /icon: "applications"/);
+});
+
+test("registers both games behind one game hub sidebar entry", () => {
+  assert.match(client, /import\("\/ai-fleet-defense\/hub\/route\.js"\)/);
+  assert.match(client, /import\("\/ai-fleet-defense\/dodge\/route\.js"\)/);
+  assert.match(client, /path: "\/ai-token-games"/);
+  assert.match(client, /path: "\/ai-bullet-dodge"/);
+  assert.match(client, /label: "AI Token 游戏"/);
+  assert.equal(
+    (client.match(/ctx\.slots\.inject\("wework\.sidebar\.navigation"/g) ?? [])
+      .length,
+    1,
+  );
+  assert.match(client, /icon: "gamepad-2"/);
+  assert.match(client, /icon: "plane"/);
+  assert.match(client, /testId: "ai-token-games-button"/);
 });

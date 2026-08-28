@@ -6,11 +6,23 @@ window.__ModuleLoader__.load({
     Object.defineProperty(exports, Symbol.toStringTag, { value: "Module" });
 
     const React = require("react");
-    const { createElement: h, useCallback, useEffect, useMemo, useRef, useState } =
-      React;
+    const {
+      Suspense,
+      createElement: h,
+      lazy,
+      useCallback,
+      useEffect,
+      useMemo,
+      useRef,
+      useState,
+    } = React;
     const PACKAGE_NAME = "@wegent/ai-fleet-defense";
     const UNIT = "ai_fleet_defense";
-    const DESCRIPTOR = { version: 1, tables: ["scores"], has_global: false };
+    const DESCRIPTOR = {
+      version: 1,
+      tables: ["scores", "dodge_scores"],
+      has_global: false,
+    };
     const STATE_PATH = "/ai-fleet-defense/v1/state";
     const BACKGROUND_PATH =
       "/ai-fleet-defense/assets/neural-rift-battlefield.png";
@@ -83,6 +95,42 @@ window.__ModuleLoader__.load({
         comboScore: 6,
       },
     };
+
+    const LazyBulletDodgeRoute = lazy(() =>
+      import("/ai-fleet-defense/dodge/route.js").then((module) => ({
+        default: module.createBulletDodgeRoute(React),
+      })),
+    );
+    const LazyGameHubRoute = lazy(() =>
+      import("/ai-fleet-defense/hub/route.js").then((module) => ({
+        default: module.createGameHubRoute(React),
+      })),
+    );
+
+    function GameHubRoute() {
+      return h(
+        Suspense,
+        { fallback: routeFallback("正在装载 AI Token 游戏场…") },
+        h(LazyGameHubRoute),
+      );
+    }
+
+    function BulletDodgeRoute() {
+      return h(
+        Suspense,
+        { fallback: routeFallback("正在装载飞行训练空域…") },
+        h(LazyBulletDodgeRoute),
+      );
+    }
+
+    function routeFallback(message) {
+      return h(
+        "main",
+        { className: "afd-page" },
+        h("style", null, gameCss),
+        h("div", { className: "afd-card" }, message),
+      );
+    }
 
     function FleetDefenseRoute() {
       const [telemetry, setTelemetry] = useState(emptyTelemetry);
@@ -271,14 +319,27 @@ window.__ModuleLoader__.load({
             ),
           ),
           h(
-            "button",
-            {
-              type: "button",
-              className: "afd-exit",
-              "data-testid": "ai-fleet-defense-exit",
-              onClick: returnToWorkbench,
-            },
-            "← 返回工作台",
+            "div",
+            { className: "afd-header-actions" },
+            h(
+              "button",
+              {
+                type: "button",
+                className: "afd-exit",
+                onClick: () => navigateTo("/ai-token-games"),
+              },
+              "返回游戏大厅",
+            ),
+            h(
+              "button",
+              {
+                type: "button",
+                className: "afd-exit",
+                "data-testid": "ai-fleet-defense-exit",
+                onClick: returnToWorkbench,
+              },
+              "← 返回工作台",
+            ),
           ),
         ),
         h(
@@ -1606,7 +1667,10 @@ window.__ModuleLoader__.load({
     }
 
     function returnToWorkbench() {
-      const target = workbenchPath();
+      navigateTo(workbenchPath());
+    }
+
+    function navigateTo(target) {
       if (window.location.pathname === target) return;
       window.history.pushState({}, "", target);
       window.dispatchEvent(new PopStateEvent("popstate"));
@@ -1639,7 +1703,7 @@ window.__ModuleLoader__.load({
       .afd-exit{background:rgba(79,111,145,.12);border:1px solid rgba(126,178,219,.28);border-radius:9px;color:#9fd6ec;cursor:pointer;font-size:11px;font-weight:700;min-height:34px;padding:0 13px;transition:.2s}.afd-exit:hover{background:rgba(126,218,244,.16);border-color:rgba(126,218,244,.5);color:#e9fbff}.afd-exit-overlay{align-self:center;margin-top:10px}
       .afd-overlay-actions{align-items:center;display:flex;flex-direction:column}
       .afd-page{background:radial-gradient(circle at 42% 0,#101e38 0,#07101f 36%,#030813 76%);box-sizing:border-box;color:#eef8ff;font-family:Inter,"SF Pro Display","PingFang SC","Microsoft YaHei",sans-serif;min-height:100%;padding:22px 24px 32px}
-      .afd-header{align-items:center;display:flex;gap:24px;justify-content:space-between;margin:0 auto 18px;max-width:1760px}
+      .afd-header{align-items:center;display:flex;gap:24px;justify-content:space-between;margin:0 auto 18px;max-width:1760px}.afd-header-actions{display:flex;gap:8px}
       .afd-brand{align-items:center;display:flex;gap:14px}.afd-brand h1{font-size:26px;letter-spacing:-.5px;line-height:1;margin:0}.afd-brand p{color:#7f9ab2;font-size:12px;margin:7px 0 0}
       .afd-brand-mark{align-items:center;display:flex;height:48px;justify-content:center;position:relative;width:48px}.afd-brand-core{background:#d9fbff;border-radius:50%;box-shadow:0 0 20px #4de8ff;height:12px;position:absolute;width:12px}.afd-brand-orbit{border:1px solid #4de8ff;border-radius:50%;height:36px;position:absolute;transform:rotate(-30deg) scaleY(.45);width:36px}.afd-eyebrow{color:#64dff2;font-size:10px;font-weight:800;letter-spacing:2.4px;margin-bottom:4px}
       .afd-metrics{display:flex;gap:9px}.afd-metric{background:linear-gradient(145deg,rgba(21,39,65,.9),rgba(8,19,35,.88));border:1px solid rgba(117,168,207,.18);border-radius:12px;display:grid;min-width:130px;padding:10px 13px}.afd-metric>span{color:#7690a8;font-size:10px}.afd-metric i{border-radius:50%;float:right;height:5px;margin-top:4px;width:5px}.afd-metric b{font-size:19px;margin-top:3px}.afd-metric small{color:#5f768c;font-size:9px}
@@ -1669,6 +1733,20 @@ window.__ModuleLoader__.load({
           ctx,
           "wework.route",
           {
+            id: "ai-token-games.route",
+            icon: "gamepad-2",
+            path: "/ai-token-games",
+            restorePolicy: "session",
+            title: "AI Token 游戏场",
+          },
+          GameHubRoute,
+        ),
+      );
+      ctx.slots.inject("wework.route", () =>
+        ctx.wework.ui.register(
+          ctx,
+          "wework.route",
+          {
             id: "ai-fleet-defense.route",
             icon: "shield",
             path: "/ai-fleet-defense",
@@ -1678,15 +1756,29 @@ window.__ModuleLoader__.load({
           FleetDefenseRoute,
         ),
       );
+      ctx.slots.inject("wework.route", () =>
+        ctx.wework.ui.register(
+          ctx,
+          "wework.route",
+          {
+            id: "ai-bullet-dodge.route",
+            icon: "plane",
+            path: "/ai-bullet-dodge",
+            restorePolicy: "session",
+            title: "是王牌就坚持 60 秒",
+          },
+          BulletDodgeRoute,
+        ),
+      );
       ctx.slots.inject("wework.sidebar.navigation", () =>
         ctx.wework.ui.register(ctx, "wework.sidebar.navigation", {
-          id: "ai-fleet-defense.navigation",
-          activeItem: "ai-fleet-defense",
-          icon: "shield",
-          label: "AI 舰队防线",
+          id: "ai-token-games.navigation",
+          activeItem: "ai-token-games",
+          icon: "gamepad-2",
+          label: "AI Token 游戏",
           order: 35,
-          path: "/ai-fleet-defense",
-          testId: "ai-fleet-defense-button",
+          path: "/ai-token-games",
+          testId: "ai-token-games-button",
         }),
       );
     };
